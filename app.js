@@ -1,587 +1,555 @@
+
 "use strict";
 
-/* ==========================================
-   STUDENTHUB — STUDENT RECORD MANAGEMENT
-   Storage: Browser localStorage
-   ========================================== */
+/* =========================================
+   STUDENTHUB - APPLICATION
+   ========================================= */
 
-const STORAGE_KEY = "studenthub_student_records_v1";
-const SESSION_KEY = "studenthub_teacher_session_v1";
+const KEYS = {
+    students: "studenthub_students_v2",
+    email: "studenthub_remembered_email",
+    remember: "studenthub_remember_email",
+    theme: "studenthub_theme",
+    session: "studenthub_demo_session"
+};
 
 const DEMO_EMAIL = "teacher@school.edu";
 const DEMO_PASSWORD = "teacher123";
 
 let students = loadStudents();
-let toastTimer = null;
-let pendingConfirmAction = null;
+let toastTimer;
+let confirmResolver = null;
+
+const $ = id => document.getElementById(id);
+
+const pages = {
+    dashboard: "Dashboard",
+    students: "All Students",
+    add: "Add Student",
+    search: "Search Student",
+    update: "Update Record",
+    delete: "Delete Student",
+    linkedlist: "Linked List Lab",
+    guide: "DS Guide"
+};
 
 
-/* ==========================================
-   DOM HELPERS
-   ========================================== */
-
-const $ = (selector) => document.querySelector(selector);
-
-const $$ = (selector) => [...document.querySelectorAll(selector)];
+/* =========================================
+   SECURITY / HTML HELPERS
+   ========================================= */
 
 function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, (character) => {
-        const entities = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;"
-        };
-
-        return entities[character];
-    });
+    return String(value).replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[character]);
 }
 
 function normalizeReg(value) {
     return String(value).trim().toUpperCase();
 }
 
-function formatMarks(value) {
-    return Number(value).toFixed(2).replace(/\.00$/, "");
-}
-
-function initials(name) {
+function getInitials(name) {
     return String(name)
         .trim()
         .split(/\s+/)
         .slice(0, 2)
-        .map(part => part.charAt(0))
+        .map(part => part[0])
         .join("")
         .toUpperCase();
 }
 
-function getPerformance(marks) {
-    if (marks >= 90) {
-        return { label: "Excellent", className: "" };
-    }
+function validMarks(value) {
+    return Number.isFinite(value) && value >= 0 && value <= 100;
+}
 
-    if (marks >= 75) {
-        return { label: "Very Good", className: "" };
-    }
+function findStudent(reg) {
+    const key = normalizeReg(reg);
+    return students.find(s => s.reg === key);
+}
 
-    if (marks >= 50) {
-        return { label: "Average", className: "average" };
-    }
-
-    return { label: "Needs Improvement", className: "needs-work" };
+function performance(marks) {
+    if (marks >= 90) return "Excellent";
+    if (marks >= 75) return "Very Good";
+    if (marks >= 50) return "Average";
+    return "Needs Improvement";
 }
 
 
-/* ==========================================
-   STORAGE
-   ========================================== */
+/* =========================================
+   LOCAL STORAGE
+   ========================================= */
 
 function loadStudents() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const saved = JSON.parse(localStorage.getItem(KEYS.students) || "[]");
 
-        if (!raw) {
-            return [];
-        }
+        if (!Array.isArray(saved)) return [];
 
-        const parsed = JSON.parse(raw);
+        const seen = new Set();
 
-        if (!Array.isArray(parsed)) {
-            return [];
-        }
+        return saved.filter(s => {
+            if (!s || typeof s !== "object") return false;
 
-        // Ignore malformed records.
-        return parsed.filter(student => {
-            return student &&
-                typeof student.reg === "string" &&
-                typeof student.name === "string" &&
-                Number.isFinite(Number(student.marks)) &&
-                Number(student.marks) >= 0 &&
-                Number(student.marks) <= 100;
-        }).map(student => ({
-            reg: normalizeReg(student.reg),
-            name: student.name.trim(),
-            marks: Number(student.marks)
+            const reg = normalizeReg(s.reg);
+            const name = String(s.name || "").trim();
+            const marks = Number(s.marks);
+
+            if (!reg || !name || !validMarks(marks) || seen.has(reg)) {
+                return false;
+            }
+
+            seen.add(reg);
+            return true;
+        }).map(s => ({
+            reg: normalizeReg(s.reg),
+            name: String(s.name).trim(),
+            marks: Number(s.marks)
         }));
-    } catch (error) {
-        console.error("Could not load student records:", error);
+    } catch {
         return [];
     }
 }
 
 function saveStudents() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+        localStorage.setItem(KEYS.students, JSON.stringify(students));
         return true;
     } catch (error) {
-        console.error("Could not save student records:", error);
-
-        showToast(
-            "Unable to save. Check your browser storage settings.",
-            "error"
-        );
-
+        console.error(error);
+        showToast("Could not save records. Check browser storage.", "error");
         return false;
     }
 }
 
 
-/* ==========================================
-   NOTIFICATIONS
-   ========================================== */
+/* =========================================
+   TOAST MESSAGES
+   ========================================= */
 
 function showToast(message, type = "success") {
-    const toast = $("#toast");
+    const toast = $("toast");
 
     toast.textContent = message;
-    toast.classList.add("show");
-
     toast.style.borderColor = type === "error"
-        ? "rgba(255, 100, 140, 0.45)"
-        : "rgba(166, 107, 255, 0.3)";
+        ? "var(--red)"
+        : "var(--accent)";
+
+    toast.classList.add("show");
 
     clearTimeout(toastTimer);
 
     toastTimer = setTimeout(() => {
         toast.classList.remove("show");
-    }, 3000);
+    }, 2800);
 }
 
-function setMessage(element, message, type = "success") {
+function setMessage(id, message, type = "") {
+    const element = $(id);
     element.textContent = message;
-    element.className = `form-message ${type}`;
+    element.className = "form-message " + type;
 }
 
 
-/* ==========================================
-   LOGIN AND LOGOUT
-   ========================================== */
+/* =========================================
+   THEME MANAGEMENT
+   ========================================= */
+
+function applyTheme(theme) {
+    const dark = theme === "dark";
+
+    document.body.classList.toggle("dark", dark);
+
+    $("themeIcon").textContent = dark ? "☀" : "☾";
+    $("themeText").textContent = dark ? "Light mode" : "Dark mode";
+
+    document.documentElement.style.colorScheme =
+        dark ? "dark" : "light";
+
+    localStorage.setItem(KEYS.theme, theme);
+}
+
+function initializeTheme() {
+    const saved = localStorage.getItem(KEYS.theme);
+    applyTheme(saved === "dark" ? "dark" : "light");
+}
+
+$("themeToggle").addEventListener("click", () => {
+    const currentlyDark = document.body.classList.contains("dark");
+    applyTheme(currentlyDark ? "light" : "dark");
+});
+
+initializeTheme();
+
+
+/* =========================================
+   LOGIN MANAGEMENT
+   ========================================= */
+
+function initializeLogin() {
+    const savedEmail = localStorage.getItem(KEYS.email);
+    const remember = localStorage.getItem(KEYS.remember);
+
+    if (savedEmail) {
+        $("loginEmail").value = savedEmail;
+    }
+
+    $("rememberEmail").checked = remember !== "false";
+}
 
 function showLogin() {
-    $("#loginPage").classList.remove("hidden");
-    $("#app").classList.add("hidden");
+    $("loginPage").classList.remove("hidden");
+    $("app").classList.add("hidden");
+
+    $("loginPassword").value = "";
+    $("loginEmail").focus();
 }
 
 function showApplication() {
-    $("#loginPage").classList.add("hidden");
-    $("#app").classList.remove("hidden");
+    $("loginPage").classList.add("hidden");
+    $("app").classList.remove("hidden");
 
-    renderDashboard();
-    renderStudentTable();
-    renderLinkedList();
+    $("todayLabel").textContent = new Intl.DateTimeFormat(
+        "en-IN",
+        {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+        }
+    ).format(new Date());
 
+    refreshAll();
     navigateTo("dashboard");
 }
 
-$("#loginForm").addEventListener("submit", (event) => {
+initializeLogin();
+
+$("loginForm").addEventListener("submit", event => {
     event.preventDefault();
 
-    const email = $("#loginEmail").value.trim().toLowerCase();
-    const password = $("#loginPassword").value;
-    const errorElement = $("#loginError");
+    const email = $("loginEmail").value.trim().toLowerCase();
+    const password = $("loginPassword").value;
 
-    if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-        sessionStorage.setItem(SESSION_KEY, "true");
+    $("loginError").textContent = "";
 
-        errorElement.textContent = "";
-
-        $("#loginForm").reset();
-
-        showApplication();
-
-        showToast("Welcome to StudentHub!");
-    } else {
-        errorElement.textContent =
-            "Invalid email or password. Please try again.";
+    if (!email || !password) {
+        $("loginError").textContent = "Please enter your email and password.";
+        return;
     }
+
+    // Demo frontend authentication.
+    if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+        $("loginError").textContent =
+            "Incorrect email or password. Please try again.";
+        $("loginPassword").focus();
+        return;
+    }
+
+    // Save the email only when Remember my email is selected.
+    if ($("rememberEmail").checked) {
+        localStorage.setItem(KEYS.email, email);
+        localStorage.setItem(KEYS.remember, "true");
+    } else {
+        localStorage.removeItem(KEYS.email);
+        localStorage.setItem(KEYS.remember, "false");
+    }
+
+    // Do not store the password.
+    $("loginPassword").value = "";
+
+    sessionStorage.setItem(KEYS.session, "active");
+
+    showApplication();
+    showToast("Welcome back, Teacher!");
 });
 
-$("#togglePassword").addEventListener("click", () => {
-    const passwordInput = $("#loginPassword");
-    const isHidden = passwordInput.type === "password";
+$("togglePassword").addEventListener("click", () => {
+    const field = $("loginPassword");
+    const visible = field.type === "text";
 
-    passwordInput.type = isHidden ? "text" : "password";
-    $("#togglePassword").textContent = isHidden ? "Hide" : "Show";
+    field.type = visible ? "password" : "text";
+    $("togglePassword").textContent = visible ? "Show" : "Hide";
 });
 
-$("#logoutButton").addEventListener("click", () => {
-    sessionStorage.removeItem(SESSION_KEY);
-
+$("logoutButton").addEventListener("click", () => {
+    sessionStorage.removeItem(KEYS.session);
+    $("sidebar").classList.remove("open");
     showLogin();
-
-    $("#loginEmail").focus();
 });
 
 
-// This is a convenience gate, not secure server-side authentication.
-// Browser JavaScript cannot provide real account security.
-
-if (sessionStorage.getItem(SESSION_KEY) === "true") {
+// Restore the demo session only for this browser tab/session.
+if (sessionStorage.getItem(KEYS.session) === "active") {
     showApplication();
 } else {
     showLogin();
 }
 
 
-/* ==========================================
+/* =========================================
    NAVIGATION
-   ========================================== */
-
-const pageTitles = {
-    dashboard: "Dashboard",
-    students: "All Students",
-    add: "Add Student",
-    search: "Search Student",
-    update: "Update Record",
-    delete: "Delete Record",
-    linkedlist: "Linked List Lab",
-    guide: "DS Guide"
-};
+   ========================================= */
 
 function navigateTo(pageName) {
-    const page = document.getElementById(`page-${pageName}`);
+    const target = $("page-" + pageName);
 
-    if (!page) {
-        return;
-    }
+    if (!target) return;
 
-    $$(".page-section").forEach(section => {
-        section.classList.add("hidden");
+    document.querySelectorAll(".page-section").forEach(page => {
+        page.classList.add("hidden");
     });
 
-    page.classList.remove("hidden");
+    target.classList.remove("hidden");
 
-    $$(".nav-link[data-page]").forEach(button => {
+    document.querySelectorAll(".nav-link").forEach(button => {
         button.classList.toggle(
             "active",
             button.dataset.page === pageName
         );
     });
 
-    $("#topbarTitle").textContent = pageTitles[pageName] || "StudentHub";
+    $("topbarTitle").textContent = pages[pageName] || "StudentHub";
 
-    // Refresh the current page with the latest records.
-    if (pageName === "dashboard") {
-        renderDashboard();
-    }
+    $("sidebar").classList.remove("open");
 
-    if (pageName === "students") {
-        renderStudentTable();
-        $("#tableSearch").value = "";
-    }
-
-    if (pageName === "linkedlist") {
-        renderLinkedList();
-    }
+    if (pageName === "dashboard") renderDashboard();
+    if (pageName === "students") renderStudentTable();
+    if (pageName === "linkedlist") renderLinkedList();
 
     if (pageName === "add") {
-        $("#addMessage").textContent = "";
-        $("#addReg").focus();
+        $("addStudentForm").reset();
+        setMessage("addMessage", "");
+        $("addReg").focus();
     }
 
     if (pageName === "search") {
-        $("#searchResult").innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">⌕</div>
-                <h3>Ready to find a student?</h3>
-                <p>Enter a registration number above to view a record.</p>
-            </div>
-        `;
-        $("#searchReg").focus();
+        $("searchStudentForm").reset();
+        $("searchResult").innerHTML = "";
+        $("searchReg").focus();
     }
 
     if (pageName === "update") {
-        $("#updateLookupForm").reset();
-        $("#updateEditor").classList.add("hidden");
-        $("#updateLookupMessage").textContent = "";
-        $("#updateMessage").textContent = "";
-        $("#updateLookupReg").focus();
+        $("updateLookupForm").reset();
+        $("updateStudentForm").reset();
+        $("updateEditor").classList.add("hidden");
+        setMessage("updateLookupMessage", "");
+        setMessage("updateMessage", "");
     }
 
     if (pageName === "delete") {
-        $("#deleteLookupForm").reset();
-        $("#deleteResult").innerHTML = "";
-        $("#deleteLookupReg").focus();
+        $("deleteLookupForm").reset();
+        $("deleteResult").innerHTML = "";
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-$$("[data-page]").forEach(button => {
+document.querySelectorAll("[data-page]").forEach(button => {
     button.addEventListener("click", () => {
         navigateTo(button.dataset.page);
     });
 });
 
-$$("[data-go]").forEach(button => {
+document.querySelectorAll("[data-go]").forEach(button => {
     button.addEventListener("click", () => {
         navigateTo(button.dataset.go);
     });
 });
 
-
-/* ==========================================
-   STUDENT LOOKUP
-   ========================================== */
-
-function findStudent(registrationNumber) {
-    const target = normalizeReg(registrationNumber);
-
-    return students.find(student => {
-        return normalizeReg(student.reg) === target;
-    });
-}
-
-
-/* ==========================================
-   ADD STUDENT
-   ========================================== */
-
-$("#addStudentForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-
-    const reg = normalizeReg($("#addReg").value);
-    const name = $("#addName").value.trim();
-    const marks = Number($("#addMarks").value);
-
-    const messageElement = $("#addMessage");
-
-    if (!reg || !name) {
-        setMessage(
-            messageElement,
-            "Please enter a registration number and name.",
-            "error"
-        );
-        return;
-    }
-
-    if (!Number.isFinite(marks) || marks < 0 || marks > 100) {
-        setMessage(
-            messageElement,
-            "Marks must be a number between 0 and 100.",
-            "error"
-        );
-        return;
-    }
-
-    if (findStudent(reg)) {
-        setMessage(
-            messageElement,
-            "This registration number already exists.",
-            "error"
-        );
-        return;
-    }
-
-    const newStudent = {
-        reg,
-        name,
-        marks
-    };
-
-    // Add the new student to the collection.
-    students.push(newStudent);
-
-    if (!saveStudents()) {
-        students.pop();
-        return;
-    }
-
-    $("#addStudentForm").reset();
-
-    setMessage(
-        messageElement,
-        `Student ${name} was added successfully.`,
-        "success"
-    );
-
-    renderDashboard();
-    renderStudentTable();
-    renderLinkedList();
-
-    showToast("Student record added successfully.");
+$("menuToggle").addEventListener("click", () => {
+    $("sidebar").classList.toggle("open");
 });
 
 
-/* ==========================================
+/* =========================================
    DASHBOARD
-   ========================================== */
+   ========================================= */
 
 function renderDashboard() {
     const total = students.length;
 
-    $("#totalStudents").textContent = total;
+    $("totalStudents").textContent = total;
 
     if (total === 0) {
-        $("#averageMarks").innerHTML = '0.0<span class="small-unit"> / 100</span>';
-        $("#topPerformer").textContent = "—";
-        $("#topPerformerMarks").textContent = "No records yet";
+        $("averageMarks").textContent = "0.0";
+        $("topPerformer").textContent = "—";
+        $("topPerformerMarks").textContent = "No records yet";
 
-        $("#recentStudents").innerHTML = `
+        $("recentStudents").innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">▤</div>
-                <h3>No students yet</h3>
-                <p>Add your first student to get started.</p>
+                <h3>No students added yet</h3>
+                <p>Start by creating your first student record.</p>
                 <button class="primary-button" data-go="add">
                     Add Student
                 </button>
             </div>
         `;
 
-        // Rebind the dynamically created navigation button.
-        $("#recentStudents [data-go]").addEventListener("click", () => {
-            navigateTo("add");
-        });
+        $("recentStudents").querySelector("[data-go]")
+            .addEventListener("click", () => navigateTo("add"));
 
         return;
     }
 
-    const sum = students.reduce((totalMarks, student) => {
-        return totalMarks + student.marks;
-    }, 0);
+    const sum = students.reduce((value, s) => value + s.marks, 0);
 
-    const average = sum / total;
+    $("averageMarks").textContent = (sum / total).toFixed(1);
 
-    $("#averageMarks").innerHTML =
-        `${average.toFixed(1)}<span class="small-unit"> / 100</span>`;
+    const top = students.reduce((best, current) =>
+        current.marks > best.marks ? current : best
+    );
 
-    const top = students.reduce((best, current) => {
-        return current.marks > best.marks ? current : best;
-    });
+    $("topPerformer").textContent = top.name;
+    $("topPerformerMarks").textContent =
+        `${top.marks} / 100 marks`;
 
-    $("#topPerformer").textContent = top.name;
-    $("#topPerformerMarks").textContent =
-        `${formatMarks(top.marks)} / 100 marks`;
-
-    const recent = [...students].slice(-5).reverse();
-
-    $("#recentStudents").innerHTML = recent.map(student => `
-        <div class="recent-row">
-            <div class="student-avatar">${escapeHTML(initials(student.name))}</div>
-
-            <div class="student-summary">
-                <strong>${escapeHTML(student.name)}</strong>
-                <small>${escapeHTML(student.reg)}</small>
+    $("recentStudents").innerHTML = [...students]
+        .slice(-5)
+        .reverse()
+        .map(s => `
+            <div class="recent-row">
+                <div class="student-avatar">${escapeHTML(getInitials(s.name))}</div>
+                <div class="student-summary">
+                    <strong>${escapeHTML(s.name)}</strong>
+                    <small>${escapeHTML(s.reg)}</small>
+                </div>
+                <span class="mark-pill">${s.marks}%</span>
             </div>
-
-            <span class="mark-pill">${formatMarks(student.marks)}%</span>
-        </div>
-    `).join("");
+        `).join("");
 }
 
 
-/* ==========================================
-   STUDENT TABLE
-   ========================================== */
+/* =========================================
+   STUDENT TABLE AND SEARCH FILTER
+   ========================================= */
 
 function renderStudentTable(query = "") {
-    const tbody = $("#studentTableBody");
+    const tbody = $("studentTableBody");
     const search = query.trim().toLowerCase();
 
-    const filtered = students.filter(student => {
-        return student.reg.toLowerCase().includes(search) ||
-            student.name.toLowerCase().includes(search);
-    });
-
-    $("#recordCount").textContent =
-        `${filtered.length} record${filtered.length === 1 ? "" : "s"} found`;
-
-    $("#emptyStudents").classList.toggle(
-        "hidden",
-        filtered.length !== 0
+    const results = students.filter(s =>
+        s.name.toLowerCase().includes(search) ||
+        s.reg.toLowerCase().includes(search)
     );
 
-    tbody.innerHTML = filtered.map(student => {
-        const performance = getPerformance(student.marks);
+    $("recordCount").textContent =
+        `${results.length} record${results.length === 1 ? "" : "s"} found`;
 
-        return `
-            <tr>
-                <td>
-                    <span class="reg-badge">${escapeHTML(student.reg)}</span>
-                </td>
+    $("emptyStudents").classList.toggle("hidden", results.length > 0);
 
-                <td>${escapeHTML(student.name)}</td>
+    tbody.innerHTML = results.map(s => `
+        <tr>
+            <td><span class="reg-badge">${escapeHTML(s.reg)}</span></td>
+            <td>${escapeHTML(s.name)}</td>
+            <td>${s.marks} / 100</td>
+            <td><span class="performance ${
+                s.marks >= 75 ? "" : s.marks >= 50 ? "average" : "needs-work"
+            }">${performance(s.marks)}</span></td>
+            <td>
+                <div class="row-actions">
+                    <button class="small-action" data-edit="${escapeHTML(s.reg)}">Edit</button>
+                    <button class="small-action delete" data-delete="${escapeHTML(s.reg)}">Delete</button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
 
-                <td>${formatMarks(student.marks)} / 100</td>
-
-                <td>
-                    <span class="performance ${performance.className}">
-                        ${performance.label}
-                    </span>
-                </td>
-
-                <td>
-                    <div class="row-actions">
-                        <button class="small-action"
-                                data-edit="${escapeHTML(student.reg)}">
-                            Edit
-                        </button>
-
-                        <button class="small-action delete"
-                                data-delete="${escapeHTML(student.reg)}">
-                            Delete
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join("");
-
-    // Bind edit buttons.
-    $$("[data-edit]").forEach(button => {
+    tbody.querySelectorAll("[data-edit]").forEach(button => {
         button.addEventListener("click", () => {
             openUpdatePage(button.dataset.edit);
         });
     });
 
-    // Bind delete buttons.
-    $$("[data-delete]").forEach(button => {
+    tbody.querySelectorAll("[data-delete]").forEach(button => {
         button.addEventListener("click", () => {
-            requestStudentDeletion(button.dataset.delete);
+            requestDeletion(button.dataset.delete);
         });
     });
 }
 
-$("#tableSearch").addEventListener("input", (event) => {
+$("tableSearch").addEventListener("input", event => {
     renderStudentTable(event.target.value);
 });
 
 
-/* ==========================================
-   SEARCH STUDENT
-   ========================================== */
+/* =========================================
+   ADD STUDENT
+   ========================================= */
 
-$("#searchStudentForm").addEventListener("submit", (event) => {
+$("addStudentForm").addEventListener("submit", event => {
     event.preventDefault();
 
-    const reg = normalizeReg($("#searchReg").value);
-    const student = findStudent(reg);
+    const reg = normalizeReg($("addReg").value);
+    const name = $("addName").value.trim();
+    const marks = Number($("addMarks").value);
 
-    if (!student) {
-        $("#searchResult").innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">⌕</div>
-                <h3>Student not found</h3>
-                <p>No record exists for registration number
-                   <strong>${escapeHTML(reg)}</strong>.</p>
-            </div>
-        `;
-
+    if (!reg || !name) {
+        setMessage("addMessage", "Please fill in all fields.", "error");
         return;
     }
 
-    const performance = getPerformance(student.marks);
+    if (!validMarks(marks)) {
+        setMessage("addMessage", "Marks must be between 0 and 100.", "error");
+        return;
+    }
 
-    $("#searchResult").innerHTML = `
+    if (findStudent(reg)) {
+        setMessage("addMessage", "This registration number already exists.", "error");
+        return;
+    }
+
+    students.push({ reg, name, marks });
+
+    if (!saveStudents()) {
+        students.pop();
+        return;
+    }
+
+    $("addStudentForm").reset();
+
+    setMessage(
+        "addMessage",
+        `Successfully added ${name} to StudentHub.`,
+        "success"
+    );
+
+    refreshAll();
+    showToast("Student added successfully!");
+});
+
+
+/* =========================================
+   SEARCH STUDENT
+   ========================================= */
+
+$("searchStudentForm").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const reg = normalizeReg($("searchReg").value);
+    const student = findStudent(reg);
+
+    if (!student) {
+        $("searchResult").innerHTML = `
+            <div class="panel empty-state">
+                <div class="empty-icon">⌕</div>
+                <h3>Student not found</h3>
+                <p>No record exists for ${escapeHTML(reg)}.</p>
+            </div>
+        `;
+        return;
+    }
+
+    $("searchResult").innerHTML = `
         <div class="student-detail-card">
             <div class="student-detail-top">
-                <div class="student-avatar">
-                    ${escapeHTML(initials(student.name))}
-                </div>
-
+                <div class="student-avatar">${escapeHTML(getInitials(student.name))}</div>
                 <div>
-                    <p class="eyebrow">RECORD FOUND</p>
+                    <span class="eyebrow">RECORD FOUND</span>
                     <h3>${escapeHTML(student.name)}</h3>
                     <p>${escapeHTML(student.reg)}</p>
                 </div>
@@ -592,187 +560,332 @@ $("#searchStudentForm").addEventListener("submit", (event) => {
                     <small>REGISTRATION NUMBER</small>
                     <strong>${escapeHTML(student.reg)}</strong>
                 </div>
-
                 <div class="detail-item">
                     <small>MARKS</small>
-                    <strong>${formatMarks(student.marks)} / 100</strong>
+                    <strong>${student.marks} / 100</strong>
                 </div>
-
                 <div class="detail-item">
                     <small>PERFORMANCE</small>
-                    <strong>${performance.label}</strong>
+                    <strong>${performance(student.marks)}</strong>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button class="secondary-button" id="searchEditButton">
-                    Edit Record
-                </button>
+                <button class="secondary-button" id="searchEditButton">Edit Record</button>
             </div>
         </div>
     `;
 
-    $("#searchEditButton").addEventListener("click", () => {
+    $("searchEditButton").addEventListener("click", () => {
         openUpdatePage(student.reg);
     });
 });
 
 
-/* ==========================================
+/* =========================================
    UPDATE STUDENT
-   ========================================== */
+   ========================================= */
 
 function openUpdatePage(reg) {
     navigateTo("update");
-
-    $("#updateLookupReg").value = reg;
-
+    $("updateLookupReg").value = reg;
     loadUpdateRecord(reg);
 }
 
-$("#updateLookupForm").addEventListener("submit", (event) => {
+$("updateLookupForm").addEventListener("submit", event => {
     event.preventDefault();
-
-    loadUpdateRecord($("#updateLookupReg").value);
+    loadUpdateRecord($("updateLookupReg").value);
 });
 
 function loadUpdateRecord(reg) {
     const student = findStudent(reg);
 
-    $("#updateLookupMessage").textContent = "";
+    setMessage("updateLookupMessage", "");
 
     if (!student) {
-        $("#updateEditor").classList.add("hidden");
+        $("updateEditor").classList.add("hidden");
 
         setMessage(
-            $("#updateLookupMessage"),
-            "No student found with that registration number.",
+            "updateLookupMessage",
+            "Student record not found.",
             "error"
         );
-
         return;
     }
 
-    $("#updateOriginalReg").value = student.reg;
-    $("#updateReg").value = student.reg;
-    $("#updateName").value = student.name;
-    $("#updateMarks").value = student.marks;
+    $("updateOriginalReg").value = student.reg;
+    $("updateReg").value = student.reg;
+    $("updateName").value = student.name;
+    $("updateMarks").value = student.marks;
 
-    $("#updateEditor").classList.remove("hidden");
-
-    $("#updateMessage").textContent = "";
-
-    $("#updateReg").focus();
+    $("updateEditor").classList.remove("hidden");
+    setMessage("updateMessage", "");
 }
 
-$("#updateStudentForm").addEventListener("submit", (event) => {
+$("updateStudentForm").addEventListener("submit", event => {
     event.preventDefault();
 
-    const originalReg = normalizeReg($("#updateOriginalReg").value);
-    const newReg = normalizeReg($("#updateReg").value);
-    const newName = $("#updateName").value.trim();
-    const newMarks = Number($("#updateMarks").value);
+    const original = normalizeReg($("updateOriginalReg").value);
+    const reg = normalizeReg($("updateReg").value);
+    const name = $("updateName").value.trim();
+    const marks = Number($("updateMarks").value);
 
-    const messageElement = $("#updateMessage");
-
-    if (!newReg || !newName) {
-        setMessage(
-            messageElement,
-            "Registration number and name are required.",
-            "error"
-        );
+    if (!reg || !name) {
+        setMessage("updateMessage", "All fields are required.", "error");
         return;
     }
 
-    if (!Number.isFinite(newMarks) || newMarks < 0 || newMarks > 100) {
-        setMessage(
-            messageElement,
-            "Marks must be between 0 and 100.",
-            "error"
-        );
+    if (!validMarks(marks)) {
+        setMessage("updateMessage", "Marks must be between 0 and 100.", "error");
         return;
     }
 
-    const duplicate = students.find(student => {
-        return normalizeReg(student.reg) === newReg &&
-            normalizeReg(student.reg) !== originalReg;
-    });
-
-    if (duplicate) {
-        setMessage(
-            messageElement,
-            "Another student already uses this registration number.",
-            "error"
-        );
+    if (students.some(s => s.reg === reg && s.reg !== original)) {
+        setMessage("updateMessage", "Registration number already belongs to another student.", "error");
         return;
     }
 
-    const index = students.findIndex(student => {
-        return normalizeReg(student.reg) === originalReg;
-    });
+    const index = students.findIndex(s => s.reg === original);
 
     if (index === -1) {
-        setMessage(
-            messageElement,
-            "The original student record could not be found.",
-            "error"
-        );
+        setMessage("updateMessage", "Original record no longer exists.", "error");
         return;
     }
 
-    const previousRecord = { ...students[index] };
+    const oldRecord = { ...students[index] };
 
-    students[index] = {
-        reg: newReg,
-        name: newName,
-        marks: newMarks
-    };
+    students[index] = { reg, name, marks };
 
     if (!saveStudents()) {
-        students[index] = previousRecord;
+        students[index] = oldRecord;
         return;
     }
 
-    setMessage(
-        messageElement,
-        "Student record updated successfully.",
-        "success"
-    );
+    $("updateOriginalReg").value = reg;
+    $("updateLookupReg").value = reg;
 
-    $("#updateOriginalReg").value = newReg;
-    $("#updateLookupReg").value = newReg;
+    setMessage("updateMessage", "Student record updated successfully.", "success");
 
-    renderDashboard();
-    renderStudentTable();
-    renderLinkedList();
-
-    showToast("Student record updated.");
+    refreshAll();
+    showToast("Student record updated!");
 });
 
-$("#cancelUpdate").addEventListener("click", () => {
-    $("#updateEditor").classList.add("hidden");
-    $("#updateStudentForm").reset();
-    $("#updateLookupReg").focus();
+$("cancelUpdate").addEventListener("click", () => {
+    $("updateEditor").classList.add("hidden");
+    $("updateStudentForm").reset();
 });
 
 
-/* ==========================================
-   CONFIRMATION DIALOG
-   ========================================== */
+/* =========================================
+   CUSTOM CONFIRMATION DIALOG
+   ========================================= */
 
 function confirmAction(title, message) {
-    const dialog = $("#confirmDialog");
+    const dialog = $("confirmDialog");
 
-    $("#confirmTitle").textContent = title;
-    $("#confirmText").textContent = message;
+    $("confirmTitle").textContent = title;
+    $("confirmText").textContent = message;
 
     return new Promise(resolve => {
-        pendingConfirmAction = resolve;
+        confirmResolver = resolve;
 
         if (typeof dialog.showModal === "function") {
             dialog.showModal();
         } else {
+            confirmResolver = null;
             resolve(window.confirm(message));
-            pendingConfirmAction = null;
+        }
+    });
 }
-                                      
+
+function closeConfirmation(answer) {
+    const dialog = $("confirmDialog");
+
+    if (dialog.open) dialog.close();
+
+    if (confirmResolver) {
+        const resolve = confirmResolver;
+        confirmResolver = null;
+        resolve(answer);
+    }
+}
+
+$("confirmAccept").addEventListener("click", () => {
+    closeConfirmation(true);
+});
+
+$("confirmCancel").addEventListener("click", () => {
+    closeConfirmation(false);
+});
+
+$("confirmDialog").addEventListener("cancel", event => {
+    event.preventDefault();
+    closeConfirmation(false);
+});
+
+
+/* =========================================
+   DELETE STUDENT
+   ========================================= */
+
+async function requestDeletion(reg) {
+    const student = findStudent(reg);
+
+    if (!student) {
+        showToast("Student not found.", "error");
+        return;
+    }
+
+    const answer = await confirmAction(
+        "Delete student record?",
+        `Are you sure you want to permanently delete ${student.name} (${student.reg})?`
+    );
+
+    if (!answer) return;
+
+    deleteStudent(reg);
+}
+
+function deleteStudent(reg) {
+    const index = students.findIndex(s => s.reg === normalizeReg(reg));
+
+    if (index === -1) return;
+
+    const removed = students.splice(index, 1)[0];
+
+    if (!saveStudents()) {
+        students.splice(index, 0, removed);
+        return;
+    }
+
+    refreshAll();
+    $("deleteResult").innerHTML = "";
+
+    showToast("Student record deleted successfully.");
+}
+
+$("deleteLookupForm").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const reg = normalizeReg($("deleteLookupReg").value);
+    const student = findStudent(reg);
+
+    if (!student) {
+        $("deleteResult").innerHTML = `
+            <div class="panel empty-state">
+                <div class="empty-icon">⌕</div>
+                <h3>Student not found</h3>
+                <p>No matching student record exists.</p>
+            </div>
+        `;
+        return;
+    }
+
+    $("deleteResult").innerHTML = `
+        <div class="student-detail-card">
+            <div class="student-detail-top">
+                <div class="student-avatar">${escapeHTML(getInitials(student.name))}</div>
+                <div>
+                    <span class="eyebrow">RECORD SELECTED</span>
+                    <h3>${escapeHTML(student.name)}</h3>
+                    <p>${escapeHTML(student.reg)}</p>
+                </div>
+            </div>
+
+            <p style="margin-top:16px;font-size:12px;color:var(--muted)">
+                Marks: ${student.marks} / 100
+            </p>
+
+            <div class="form-actions">
+                <button class="danger-button" id="deleteConfirmButton">
+                    Delete This Student
+                </button>
+            </div>
+        </div>
+    `;
+
+    $("deleteConfirmButton").addEventListener("click", () => {
+        requestDeletion(student.reg);
+    });
+});
+
+
+/* =========================================
+   SINGLY LINKED LIST VISUALIZER
+   ========================================= */
+
+function renderLinkedList() {
+    $("listNodeCount").textContent = students.length;
+
+    $("listHead").textContent = students.length
+        ? students[0].reg
+        : "NULL";
+
+    const canvas = $("linkedListCanvas");
+
+    if (students.length === 0) {
+        canvas.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⌘</div>
+                <h3>Empty linked list</h3>
+                <p>Add a student to create your first node.</p>
+                <button class="primary-button" id="visualizerAddButton">
+                    Create First Node
+                </button>
+            </div>
+        `;
+
+        $("visualizerAddButton").addEventListener("click", () => {
+            navigateTo("add");
+        });
+
+        return;
+    }
+
+    const nodeMarkup = students.map((student, index) => {
+        const next = students[index + 1]
+            ? students[index + 1].reg
+            : "NULL";
+
+        return `
+            <div class="list-node">
+                <div class="list-node-head">NODE ${index + 1}</div>
+
+                <div class="list-node-data">
+                    <strong>${escapeHTML(student.name)}</strong>
+                    <small>Reg: ${escapeHTML(student.reg)}</small>
+                    <small>Marks: ${student.marks}</small>
+                </div>
+
+                <div class="list-node-pointer">
+                    NEXT → ${escapeHTML(next)}
+                </div>
+            </div>
+        `;
+    }).join('<span class="list-arrow">⟶</span>');
+
+    canvas.innerHTML = `
+        <span class="list-head-label">HEAD</span>
+        ${nodeMarkup}
+        <span class="list-arrow">⟶</span>
+        <span class="null-node">NULL</span>
+    `;
+}
+
+
+/* =========================================
+   REFRESH ALL COMPONENTS
+   ========================================= */
+
+function refreshAll() {
+    renderDashboard();
+    renderStudentTable($("tableSearch").value);
+    renderLinkedList();
+}
+
+
+/* =========================================
+   INITIALIZATION
+   ========================================= */
+
+refreshAll();
