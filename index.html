@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#090b1b">
+    <title>StudentHub | Teacher Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+<body>
+
+    <!-- LOGIN PAGE -->
+    <section id="loginPage" class="login-page">
+        <div class="login-decoration decoration-one"></div>
+        <div class="login-decoration decoration-two"></div>
+
+        <div class="login-card">
+            <div class="brand-mark login-logo">S<span>H</span></div>
+
+            <p class="eyebrow">ACADEMIC MANAGEMENT SYSTEM</p>
+            <h1>Welcome <span>back.</span></h1>
+            <p class="muted login-description">
+                Sign in to manage student records and academic information.
+            </p>
+
+            <form id="loginForm">
+                <label for="loginEmail">Teacher Email</label>
+                <input
+                    type="email"
+                    id="loginEmail"
+                    placeholder="teacher@school.edu"
+                    autocomplete="username"
+                    required
+                >
+
+                <label for="loginPassword">Password</label>
+                <div class="password-field">
+                    <input
+                        type="password"
+                        id="loginPassword"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        required
+                    >
+                    <button type="button" id="togglePassword" class="password-toggle">
+                        Show
+                    </button>
+                </div>
+
+                <p id="loginError" class="error-message" role="alert"></p>
+
+                <button type="submit" class="primary-button login-button">
+                    Access Dashboard <span>→</span>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <span class="status-dot"></span>
+                StudentHub Management Portal
+            </div>
+        </div>
+
+        <p class="login-bottom-note">LEARN · ORGANIZE · GROW</p>
+    </section>
+
+
+    <!-- MAIN APPLICATION -->
+    <div id="app" class="app-layout hidden">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">S<span>H</span></div>
+                <div>
+                    <h2>Student<span>Hub</span></h2>
+                    <p>TEACHER PORTAL</p>
+                </div>
+            </div>
+
+            <div class="sidebar-label">WORKSPACE</div>
+
+            <nav class="sidebar-nav" aria-label="Main navigation">
+                <button class="nav-link active" data-page="dashboard">
+                    <span class="nav-icon">◫</span> Dashboard
+                </button>
+
+                <button class="nav-link" data-page="students">
+                    <span class="nav-icon">▤</span> All Students
+                </button>
+
+                <button class="nav-link" data-page="add">
+                    <span class="nav-icon">＋</span> Add Student
+                </button>
+
+                <button class="nav-link" data-page="search">
+                    <span class="nav-icon">⌕</span> Search Student
+                </button>
+
+                <button class="nav-link" data-page="update">
+                    <span class="nav-icon">✎</span> Update Record
+                </button>
+
+                <button class="nav-link" data-page="delete">
+                    <span class="nav-icon">⌫</span> Delete Record
+                </button>
+            </nav>
+
+            <div class="sidebar-label secondary-label">LEARNING SPACE</div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-link" data-page="linkedlist">
+                    <span class="nav-icon">⌘</span> Linked List Lab
+                </button>
+
+                <button class="nav-link" data-page="guide">
+                    <span class="nav-icon">▧</span> DS Guide
+                </button>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="sidebar-mini-card">
+                    <div class="mini-icon">✦</div>
+                    <h3>Organize smarter.</h3>
+                    <p>One place for every student record.</p>
+                </div>
+
+                <button id="logoutButton" class="nav-link logout-link">
+                    <span class="nav-icon">↪</span> Sign Out
+                </button>
+
+                <div class="sidebar-version">STUDENTHUB · VERSION 1.0</div>
+            </div>
+        </aside>
+
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">ACADEMIC WORKSPACE</p>
+                    <h2 id="topbarTitle">Dashboard</h2>
+                </div>
+
+                <div class="topbar-right">
+                    <div class="online-indicator">
+                        <span class="status-dot"></span> System Online
+                    </div>
+
+                    <div class="teacher-avatar">T</div>
+
+                    <div class="teacher-info">
+                        <strong>Teacher</strong>
+                        <span>Administrator</span>
+                    </div>
+                </div>
+            </header>
+
+
+            <div id="pageContent">
+
+                <!-- DASHBOARD -->
+                <section id="page-dashboard" class="page-section">
+                    <div class="welcome-banner">
+                        <div>
+                            <p class="eyebrow">YOUR ACADEMIC OVERVIEW</p>
+                            <h1>Good to see you, <span>Teacher.</span></h1>
+                            <p>Manage your student records from one workspace.</p>
+
+                            <button class="primary-button" data-go="add">
+                                + Add New Student
+                            </button>
+                        </div>
+
+                        <div class="welcome-art" aria-hidden="true">
+                            <div class="orbit orbit-one"></div>
+                            <div class="orbit orbit-two"></div>
+                            <div class="art-symbol">S<span>H</span></div>
+                            <div class="art-chip">RECORDS<br>MADE SIMPLE</div>
+                        </div>
+                    </div>
+
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">AT A GLANCE</p>
+                            <h2>Overview</h2>
+                        </div>
+                        <span class="live-badge">● LIVE DATA</span>
+                    </div>
+
+                    <div class="stats-grid">
+                        <article class="stat-card">
+                            <div class="stat-top">
+                                <span>Total Students</span>
+                                <span class="stat-icon purple">▤</span>
+                            </div>
+                            <h2 id="totalStudents">0</h2>
+                            <p>Records in your system</p>
+                        </article>
+
+                        <article class="stat-card">
+                            <div class="stat-top">
+                                <span>Average Marks</span>
+                                <span class="stat-icon blue">↗</span>
+                            </div>
+                            <h2 id="averageMarks">0.0<span class="small-unit"> / 100</span></h2>
+                            <p>Across all student records</p>
+                        </article>
+
+                        <article class="stat-card">
+                            <div class="stat-top">
+                                <span>Top Performer</span>
+                                <span class="stat-icon pink">✦</span>
+                            </div>
+                            <h2 id="topPerformer">—</h2>
+                            <p id="topPerformerMarks">No records yet</p>
+                        </article>
+
+                        <article class="stat-card">
+                            <div class="stat-top">
+                                <span>Data Structure</span>
+                                <span class="stat-icon cyan">⌘</span>
+                            </div>
+                            <h2 class="stat-text">SLL</h2>
+                            <p>Singly Linked List</p>
+                        </article>
+                    </div>
+
+                    <div class="content-grid">
+                        <article class="panel recent-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">RECORD OVERVIEW</p>
+                                    <h3>Recent Students</h3>
+                                </div>
+                                <button class="text-button" data-go="students">
+                                    View all →
+                                </button>
+                            </div>
+
+                            <div id="recentStudents"></div>
+                        </article>
+
+                        <article class="panel actions-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">QUICK ACCESS</p>
+                                    <h3>What would you like to do?</h3>
+                                </div>
+                            </div>
+
+                            <button class="action-row" data-go="add">
+                                <span class="action-icon purple">＋</span>
+                                <span><strong>Add a student</strong><small>Create a new record</small></span>
+                                <span class="row-arrow">→</span>
+                            </button>
+
+                            <button class="action-row" data-go="search">
+                                <span class="action-icon blue">⌕</span>
+                                <span><strong>Find a student</strong><small>Search by registration number</small></span>
+                                <span class="row-arrow">→</span>
+                            </button>
+
+                            <button class="action-row" data-go="linkedlist">
+                                <span class="action-icon pink">⌘</span>
+                                <span><strong>Explore linked list</strong><small>View the data structure</small></span>
+                                <span class="row-arrow">→</span>
+                            </button>
+                        </article>
+                    </div>
+
+                    <div class="bottom-note">
+                        <span class="status-dot"></span>
+                        Your records are stored locally in this browser.
+                    </div>
+                </section>
+
+
+                <!-- ALL STUDENTS -->
+                <section id="page-students" class="page-section hidden">
+                    <div class="page-intro">
+                        <div>
+                            <p class="eyebrow">STUDENT DIRECTORY</p>
+                            <h1>All <span>Students.</span></h1>
+                            <p>Browse, search, and manage student records.</p>
+                        </div>
+                        <button class="primary-button" data-go="add">＋ Add Student</button>
+                    </div>
+
+                    <div class="panel">
+                        <div class="table-toolbar">
+                            <div>
+                                <h3>Student Records</h3>
+                                <p id="recordCount">0 records found</p>
+                            </div>
+
+                            <input
+                                type="search"
+                                id="tableSearch"
+                                class="compact-input"
+                                placeholder="Search students..."
+                                aria-label="Search student table"
+                            >
+                        </div>
+
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>REG. NUMBER</th>
+                                        <th>STUDENT NAME</th>
+                                        <th>MARKS</th>
+                                        <th>PERFORMANCE</th>
+                                        <th>ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentTableBody"></tbody>
+                            </table>
+                        </div>
+
+                        <div id="emptyStudents" class="empty-state hidden">
+                            <div class="empty-icon">▤</div>
+                            <h3>No student records found</h3>
+                            <p>Add a student or try a different search.</p>
+                            <button class="primary-button" data-go="add">Add First Student</button>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ADD STUDENT -->
+                <section id="page-add" class="page-section hidden">
+                    <div class="page-intro">
+                        <div>
+                            <p class="eyebrow">RECORD MANAGEMENT</p>
+                            <h1>Add a <span>Student.</span></h1>
+                            <p>Create a student record in your linked-list collection.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-layout">
+                        <article class="panel form-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">NEW ENTRY</p>
+                                    <h3>Student Information</h3>
+                                </div>
+                                <span class="stat-icon purple">＋</span>
+                            </div>
+
+                            <form id="addStudentForm" class="student-form">
+                                <label for="addReg">Registration Number</label>
+                                <input id="addReg" type="text" maxlength="30"
+                                       placeholder="e.g. 25CS001" required>
+
+                                <label for="addName">Student Full Name</label>
+                                <input id="addName" type="text" maxlength="80"
+                                       placeholder="Enter student name" required>
+
+                                <label for="addMarks">Marks (out of 100)</label>
+                                <input id="addMarks" type="number" min="0" max="100"
+                                       step="0.01" placeholder="e.g. 85" required>
+
+                                <div id="addMessage" class="form-message" role="status"></div>
+
+                                <div class="form-actions">
+                                    <button type="reset" class="secondary-button">Clear Form</button>
+                                    <button type="submit" class="primary-button">Save Student →</button>
+                                </div>
+                            </form>
+                        </article>
+
+                        <aside class="panel info-panel">
+                            <div class="info-illustration">↗</div>
+                            <p class="eyebrow">DATA STRUCTURE NOTE</p>
+                            <h3>One record. One node.</h3>
+                            <p>Each student is stored as a node containing a registration number, name, marks, and a link to the next node.</p>
+
+                            <div class="mini-node">
+                                <div><small>DATA</small><strong>Student details</strong></div>
+                                <div class="node-pointer"><small>NEXT</small><strong>→</strong></div>
+                            </div>
+
+                            <p class="muted">Duplicate registration numbers are not allowed.</p>
+                        </aside>
+                    </div>
+                </section>
+
+
+                <!-- SEARCH STUDENT -->
+                <section id="page-search" class="page-section hidden">
+                    <div class="page-intro">
+                        <div>
+                            <p class="eyebrow">FIND A RECORD</p>
+                            <h1>Search <span>Students.</span></h1>
+                            <p>Look up a student using their registration number.</p>
+                        </div>
+                    </div>
+
+                    <div class="panel search-panel">
+                        <form id="searchStudentForm" class="search-form">
+                            <label for="searchReg">Registration Number</label>
+                            <div class="search-input-row">
+                                <input id="searchReg" type="text" maxlength="30"
+                                       placeholder="Enter registration number..." required>
+                                <button class="primary-button" type="submit">Search →</button>
+                            </div>
+                        </form>
+
+                        <div id="searchResult" class="result-area">
+                            <div class="empty-state">
+                                <div class="empty-icon">⌕</div>
+                                <h3>Ready to find a student?</h3>
+                                <p>Enter a registration number above to view a record.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- UPDATE STUDENT -->
+                <section id="page-update" class="page-section hidden">
+                    <div class="page-intro">
+                        <div>
+                            <p class="eyebrow">EDIT EXISTING RECORDS</p>
+                            <h1>Update <span>Student.</span></h1>
+                            <p>Find a student first, then update their details.</p>
+                        </div>
+                    </div>
+
+                    <div class="panel search-panel">
+                        <form id="updateLookupForm" class="search-form">
+                            <label for="updateLookupReg">Registration Number</label>
+                            <div class="search-input-row">
+                                <input id="updateLookupReg" type="text" maxlength="30"
+                                       placeholder="Enter registration number..." required>
+                                <button class="primary-button" type="submit">Find Record →</button>
+                            </div>
+                        </form>
+
+                        <div id="updateEditor" class="hidden">
+                            <div class="divider"></div>
+                            <h3>Edit Student Information</h3>
+
+                            <form id="updateStudentForm" class="student-form">
+                                <input id="updateOriginalReg" type="hidden">
+
+                                <label for="updateReg">Registration Number</label>
+                                <input id="updateReg" type="text" maxlength="30" required>
+
+                                <label for="updateName">Student Full Name</label>
+                                <input id="updateName" type="text" maxlength="80" required>
+
+         
