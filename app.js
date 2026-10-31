@@ -74,13 +74,13 @@ function showView(id) {
 }
 
 function showApp() {
-  if ($("authPage")) $("authPage").classList.add("hidden");
-  if ($("app")) $("app").classList.remove("hidden");
+  $("authPage")?.classList.add("hidden");
+  $("app")?.classList.remove("hidden");
 }
 
 function showLogin() {
-  if ($("authPage")) $("authPage").classList.remove("hidden");
-  if ($("app")) $("app").classList.add("hidden");
+  $("authPage")?.classList.remove("hidden");
+  $("app")?.classList.add("hidden");
   showView("loginView");
 }
 
@@ -99,6 +99,22 @@ function escapeHTML(value) {
 }
 
 // ==========================================
+// SUBJECT SELECTION - FIXED
+// ==========================================
+
+// Reads checked subjects from the registration form,
+// regardless of their checkbox name attribute.
+
+function getSelectedSubjects(formId, allowedSubjects = SUBJECTS) {
+  const form = $(formId);
+  if (!form) return [];
+
+  return [...form.querySelectorAll('input[type="checkbox"]:checked')]
+    .map(input => clean(input.value).toUpperCase())
+    .filter(subject => allowedSubjects.includes(subject));
+}
+
+// ==========================================
 // TEACHER REGISTRATION
 // ==========================================
 
@@ -109,11 +125,8 @@ async function registerTeacher(event) {
   const email = clean($("registerEmail")?.value).toLowerCase();
   const password = $("registerPassword")?.value;
 
-  const selectedSubjects = [
-    ...document.querySelectorAll(
-      'input[name="registerSubject"]:checked'
-    )
-  ].map(input => input.value);
+  // FIX: No longer depends on name="registerSubject".
+  const selectedSubjects = getSelectedSubjects("registerForm");
 
   if (!name || !email || !password) {
     return showToast("Please fill in all details.");
@@ -136,13 +149,15 @@ async function registerTeacher(event) {
 
     const user = credential.user;
 
-    await setDoc(doc(db, "teachers", user.uid), {
+    const profile = {
       uid: user.uid,
       name,
       email,
       subjects: selectedSubjects,
       createdAt: serverTimestamp()
-    });
+    };
+
+    await setDoc(doc(db, "teachers", user.uid), profile);
 
     localStorage.setItem("studenthub_email", email);
 
@@ -153,7 +168,10 @@ async function registerTeacher(event) {
       subjects: selectedSubjects
     };
 
+    currentTeacher = user;
+
     showToast("Account created successfully!");
+
     await loadDashboardData();
 
   } catch (error) {
@@ -178,6 +196,7 @@ async function loginTeacher(event) {
 
   try {
     await signInWithEmailAndPassword(auth, email, password);
+
     localStorage.setItem("studenthub_email", email);
     showToast("Login successful!");
 
@@ -213,11 +232,16 @@ async function resetPassword() {
 async function logoutTeacher() {
   try {
     await signOut(auth);
+
     teacherProfile = null;
+    currentTeacher = null;
     students = [];
+
     localStorage.removeItem("studenthub_email");
+
     showLogin();
     showToast("Logged out successfully.");
+
   } catch (error) {
     showToast(error.message);
   }
@@ -232,9 +256,7 @@ async function loadTeacherProfile(user) {
   const snapshot = await getDoc(reference);
 
   if (!snapshot.exists()) {
-    throw new Error(
-      "Teacher profile not found. Please contact the administrator."
-    );
+    throw new Error("Teacher profile not found. Please contact the administrator.");
   }
 
   teacherProfile = snapshot.data();
@@ -279,7 +301,7 @@ async function loadStudents() {
 }
 
 // ==========================================
-// ADD STUDENT
+// ADD / UPDATE STUDENT
 // ==========================================
 
 async function saveStudent(event) {
@@ -292,12 +314,10 @@ async function saveStudent(event) {
   const email = clean($("studentEmail")?.value);
   const department = clean($("studentDepartment")?.value);
 
-  const selectedSubjects = [
-    ...document.querySelectorAll(
-      'input[name="studentSubject"]:checked'
-    )
-  ].map(input => input.value)
-    .filter(subject => teacherProfile.subjects.includes(subject));
+  const selectedSubjects = getSelectedSubjects(
+    "studentForm",
+    teacherProfile.subjects
+  );
 
   if (!name || !roll) {
     return showToast("Student name and roll number are required.");
@@ -336,8 +356,10 @@ async function saveStudent(event) {
       student.results = oldStudent?.results || {};
 
       await updateDoc(reference, student);
+
       editingStudentId = null;
       showToast("Student updated successfully!");
+
     } else {
       if (students.some(s => s.id === studentId)) {
         return showToast("This roll number already exists.");
@@ -399,7 +421,9 @@ function editStudent(id) {
     $("studentDepartment").value = student.department || "";
   }
 
-  document.querySelectorAll('input[name="studentSubject"]').forEach(input => {
+  document.querySelectorAll(
+    '#studentForm input[type="checkbox"]'
+  ).forEach(input => {
     input.checked = (student.subjects || []).includes(input.value);
   });
 
@@ -518,6 +542,7 @@ function getCGPA(student) {
 
 function getYearCGPA(student, year) {
   const firstSemester = (year - 1) * 2 + 1;
+
   const values = [firstSemester, firstSemester + 1]
     .map(semester => student.results?.[semester])
     .filter(value => value !== undefined && value !== null)
@@ -559,7 +584,7 @@ function getOverallAttendance(student) {
 
 function renderSubjectNavigation() {
   const container = $("subjectNavigation");
-  if (!container) return;
+  if (!container || !teacherProfile) return;
 
   container.innerHTML = teacherProfile.subjects.map(subject => `
     <button class="subject-nav-item"
@@ -573,6 +598,8 @@ function renderSubjectNavigation() {
 }
 
 function renderSubjectPickers() {
+  if (!teacherProfile) return;
+
   ["studentSubjectPicker", "settingsSubjectPicker"].forEach(id => {
     const container = $(id);
     if (!container) return;
@@ -704,6 +731,8 @@ function renderAcademic() {
 // ==========================================
 
 function renderDashboard() {
+  if (!teacherProfile) return;
+
   const total = students.length;
 
   if ($("totalStudents")) {
@@ -817,7 +846,6 @@ function toggleTheme() {
 
 function loadTheme() {
   const theme = localStorage.getItem("studenthub_theme");
-
   document.body.classList.toggle("dark-mode", theme === "dark");
 }
 
@@ -830,11 +858,11 @@ async function saveSettings(event) {
 
   const name = clean($("settingsName")?.value);
 
-  const subjects = [
-    ...document.querySelectorAll(
-      'input[name="teacherSubject"]:checked'
-    )
-  ].map(input => input.value);
+  const subjects = getSelectedSubjects(
+    "settingsForm",
+    SUBJECTS
+  ).filter(subject => teacherProfile.subjects.includes(subject) ||
+    SUBJECTS.includes(subject));
 
   if (!name || !subjects.length) {
     return showToast("Enter your name and select subjects.");
@@ -879,8 +907,6 @@ async function loadDashboardData() {
 // AUTHENTICATION LISTENER
 // ==========================================
 
-let authReady = false;
-
 onAuthStateChanged(auth, async user => {
   if (user) {
     currentTeacher = user;
@@ -898,8 +924,6 @@ onAuthStateChanged(auth, async user => {
     students = [];
     showLogin();
   }
-
-  authReady = true;
 });
 
 // ==========================================
@@ -933,7 +957,7 @@ document.querySelectorAll("[data-page]").forEach(button => {
 loadTheme();
 
 // ==========================================
-// GLOBAL FUNCTIONS FOR HTML BUTTONS
+// GLOBAL FUNCTIONS
 // ==========================================
 
 Object.assign(window, {
