@@ -1,35 +1,28 @@
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
   getAuth,
-  setPersistence,
-  browserSessionPersistence,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  updateProfile,
+  onAuthStateChanged,
   signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+  updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
   getFirestore,
   doc,
-  getDoc,
   setDoc,
-  collection,
-  addDoc,
-  getDocs,
+  getDoc,
   updateDoc,
+  collection,
+  getDocs,
+  addDoc,
   deleteDoc,
   serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* ============================================
-   1. FIREBASE CONFIGURATION
-============================================ */
-
+/* Firebase configuration — existing StudentHub project */
 const firebaseConfig = {
   apiKey: "AIzaSyDbp7MMX5jgYgM5H2KpUGYryWMuecwaroY",
   authDomain: "studyhub-139ef.firebaseapp.com",
@@ -43,21 +36,9 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-await setPersistence(auth, browserSessionPersistence);
+const SUBJECTS = ["DS", "DBMS", "MFCS", "FOIS", "CN", "OOPS"];
 
-/* ============================================
-   2. APPLICATION STATE
-============================================ */
-
-let currentUser = null;
-let teacherData = {};
-let students = [];
-let attendanceRecords = [];
-let resultRecords = [];
-let editingStudentId = null;
-let currentPage = "dashboard";
-
-const SUBJECTS = {
+const SUBJECT_INFO = {
   DS: "Data Structures",
   DBMS: "Database Management Systems",
   MFCS: "Mathematical Foundations of Computer Science",
@@ -66,56 +47,15 @@ const SUBJECTS = {
   OOPS: "Object Oriented Programming"
 };
 
-const $ = selector => document.querySelector(selector);
-const $$ = selector => [...document.querySelectorAll(selector)];
+let currentUser = null;
+let currentProfile = {};
+let students = [];
+let selectedSubject = "";
+let toastTimer = null;
+let currentTheme = localStorage.getItem("studenthub-theme") || "light";
 
-const teacherRef = () =>
-  doc(db, "teachers", currentUser.uid);
-
-const studentsRef = () =>
-  collection(db, "teachers", currentUser.uid, "students");
-
-const studentRef = id =>
-  doc(db, "teachers", currentUser.uid, "students", id);
-
-const attendanceRef = id =>
-  collection(
-    db,
-    "teachers",
-    currentUser.uid,
-    "students",
-    id,
-    "attendance"
-  );
-
-const resultsRef = id =>
-  collection(
-    db,
-    "teachers",
-    currentUser.uid,
-    "students",
-    id,
-    "results"
-  );
-
-/* ============================================
-   3. UTILITIES
-============================================ */
-
-function notify(message, type = "success") {
-  const element = $("#toast");
-
-  if (!element) return;
-
-  element.textContent = message;
-  element.className = `toast show ${type}`;
-
-  clearTimeout(notify.timer);
-
-  notify.timer = setTimeout(() => {
-    element.className = "toast";
-  }, 3200);
-}
+/* DOM helpers */
+const $ = (id) => document.getElementById(id);
 
 function escapeHTML(value = "") {
   return String(value).replace(/[&<>"']/g, char => ({
@@ -127,1148 +67,945 @@ function escapeHTML(value = "") {
   })[char]);
 }
 
-function getValue(form, name) {
-  const field = form.elements.namedItem(name);
-  return field ? String(field.value).trim() : "";
+function showToast(message) {
+  const toast = $("toast");
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-function setText(id, value) {
-  const element = document.getElementById(id);
-  if (element) element.textContent = value;
+function setMessage(element, message, success = false) {
+  element.textContent = message;
+  element.classList.toggle("success", success);
 }
 
-function formatDate(value) {
-  if (!value) return "—";
-
-  const date = value.toDate
-    ? value.toDate()
-    : new Date(value);
-
-  return isNaN(date.getTime())
-    ? "—"
-    : date.toLocaleDateString("en-IN");
-}
-
-function today() {
-  const date = new Date();
-  const offset = date.getTimezoneOffset();
-
-  return new Date(date.getTime() - offset * 60000)
-    .toISOString()
-    .slice(0, 10);
-}
-
-function average(values) {
-  return values.length
-    ? values.reduce((a, b) => a + b, 0) / values.length
-    : 0;
-}
-
-function setLoading(button, loading, normalText) {
-  if (!button) return;
-
+function setLoading(button, loading, label) {
   button.disabled = loading;
-  button.textContent = loading ? "Please wait..." : normalText;
+  button.textContent = loading ? "Please wait..." : label;
 }
 
-function showElement(selector, visible) {
-  const element = $(selector);
-  if (element) element.classList.toggle("hidden", !visible);
+function initials(name = "User") {
+  return name.trim().split(/\s+/).slice(0, 2).map(part => part[0] || "").join("").toUpperCase();
 }
 
-function selectedSubjects(form) {
-  return [...form.querySelectorAll(
-    'input[name="subjects"]:checked'
-  )].map(input => input.value);
+function getTeacherRef() {
+  return doc(db, "teachers", currentUser.uid);
 }
 
-/* ============================================
-   4. THEME MANAGEMENT
-============================================ */
+function getStudentsRef() {
+  return collection(db, "teachers", currentUser.uid, "students");
+}
 
+function getStudentRef(studentId) {
+  return doc(db, "teachers", currentUser.uid, "students", studentId);
+}
+
+function getAssignedSubjects() {
+  const subjects = currentProfile.subjects;
+  return Array.isArray(subjects) && subjects.length
+    ? subjects.filter(subject => SUBJECTS.includes(subject))
+    : [...SUBJECTS];
+}
+
+function selectedCheckboxValues(container) {
+  return [...container.querySelectorAll('input[type="checkbox"]:checked')]
+    .map(input => input.value);
+}
+
+function subjectCheckboxMarkup(selected = SUBJECTS) {
+  return SUBJECTS.map(subject => `
+    <label>
+      <input type="checkbox" value="${subject}" ${selected.includes(subject) ? "checked" : ""}>
+      <span>${subject}</span>
+    </label>
+  `).join("");
+}
+
+/* Theme */
 function applyTheme(theme) {
-  const dark = theme === "dark";
-
-  document.body.classList.toggle("dark", dark);
-  document.documentElement.dataset.theme = theme;
-
-  const text = dark ? "Light mode" : "Dark mode";
-  const icon = dark ? "☀" : "☾";
-
-  setText("themeText", text);
-  setText("themeIcon", icon);
-  setText("authThemeText", text);
-  setText("authThemeIcon", icon);
-}
-
-function toggleTheme() {
-  const current = document.body.classList.contains("dark")
-    ? "dark"
-    : "light";
-
-  const next = current === "dark" ? "light" : "dark";
-
-  localStorage.setItem("studenthub-theme", next);
-  applyTheme(next);
-}
-
-function initializeTheme() {
-  applyTheme(
-    localStorage.getItem("studenthub-theme") || "light"
-  );
-
-  $("#themeToggle")?.addEventListener("click", toggleTheme);
-  $("#authThemeToggle")?.addEventListener("click", toggleTheme);
-}
-
-/* ============================================
-   5. AUTHENTICATION SCREENS
-============================================ */
-
-function showLogin() {
-  showElement("#authPage", true);
-  showElement("#app", false);
-
-  showElement("#loginView", true);
-  showElement("#registerView", false);
-}
-
-function showRegister() {
-  showElement("#loginView", false);
-  showElement("#registerView", true);
-}
-
-function showDashboard() {
-  showElement("#authPage", false);
-  showElement("#app", true);
-
-  navigate("dashboard");
-}
-
-$("#showRegister")?.addEventListener("click", showRegister);
-$("#showLogin")?.addEventListener("click", showLogin);
-
-/* ============================================
-   6. TEACHER REGISTRATION
-============================================ */
-
-async function registerTeacher(event) {
-  event.preventDefault();
-
-  const form = event.currentTarget;
-  const button = form.querySelector('[type="submit"]');
-
-  const name = getValue(form, "name");
-  const email = getValue(form, "email");
-  const password = getValue(form, "password");
-  const confirmPassword = getValue(form, "confirmPassword");
-  const subjects = selectedSubjects(form);
-
-  if (!name || !email || !password) {
-    return notify("Complete all required fields.", "error");
-  }
-
-  if (password.length < 8) {
-    return notify("Password must contain at least 8 characters.", "error");
-  }
-
-  if (password !== confirmPassword) {
-    return notify("Passwords do not match.", "error");
-  }
-
-  if (!subjects.length) {
-    return notify("Select at least one teaching subject.", "error");
-  }
-
-  setLoading(button, true, "Create teacher account →");
-
-  try {
-    const credential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    await updateProfile(credential.user, {
-      displayName: name
-    });
-
-    const profile = {
-      uid: credential.user.uid,
-      name,
-      email,
-      subjects,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-
-    await setDoc(
-      doc(db, "teachers", credential.user.uid),
-      profile
-    );
-
-    teacherData = profile;
-    currentUser = credential.user;
-
-    notify("Your teacher account has been created.");
-
-    await loadApplication();
-
-    showDashboard();
-
-  } catch (error) {
-    console.error(error);
-
-    const messages = {
-      "auth/email-already-in-use": "This email is already registered.",
-      "auth/invalid-email": "Enter a valid email address.",
-      "auth/weak-password": "Choose a stronger password.",
-      "auth/network-request-failed": "Check your internet connection."
-    };
-
-    notify(messages[error.code] || error.message, "error");
-
-  } finally {
-    setLoading(button, false, "Create teacher account →");
-  }
-}
-
-/* ============================================
-   7. TEACHER LOGIN
-============================================ */
-
-async function loginTeacher(event) {
-  event.preventDefault();
-
-  const form = event.currentTarget;
-  const button = form.querySelector('[type="submit"]');
-
-  const email = getValue(form, "email");
-  const password = getValue(form, "password");
-
-  if (!email || !password) {
-    return notify("Enter your email and password.", "error");
-  }
-
-  setLoading(button, true, "Sign in to dashboard →");
-
-  try {
-    const credential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    const profile = await getDoc(
-      doc(db, "teachers", credential.user.uid)
-    );
-
-    if (!profile.exists()) {
-      await signOut(auth);
-      throw new Error("Teacher profile does not exist.");
-    }
-
-    currentUser = credential.user;
-    teacherData = profile.data();
-
-    await loadApplication();
-
-    showDashboard();
-
-    notify("Welcome back!");
-
-  } catch (error) {
-    console.error(error);
-
-    const messages = {
-      "auth/invalid-credential": "Incorrect email or password.",
-      "auth/user-not-found": "Account not found.",
-      "auth/too-many-requests": "Too many attempts. Try again later.",
-      "auth/network-request-failed": "Check your internet connection."
-    };
-
-    notify(messages[error.code] || error.message, "error");
-
-  } finally {
-    setLoading(button, false, "Sign in to dashboard →");
-  }
-}
-
-/* ============================================
-   8. PASSWORD RESET
-============================================ */
-
-async function resetPassword() {
-  const email = getValue($("#loginForm"), "email");
-
-  if (!email) {
-    return notify("Enter your email address first.", "error");
-  }
-
-  try {
-    await sendPasswordResetEmail(auth, email);
-    notify("Password reset link sent to your email.");
-  } catch (error) {
-    notify(error.message, "error");
-  }
-}
-
-/* ============================================
-   9. LOGOUT
-============================================ */
-
-async function logout() {
-  try {
-    await signOut(auth);
-
-    currentUser = null;
-    teacherData = {};
-    students = [];
-    attendanceRecords = [];
-    resultRecords = [];
-
-    showLogin();
-
-    notify("You have signed out successfully.");
-
-  } catch (error) {
-    notify(error.message, "error");
-  }
-}
-
-/* ============================================
-   10. NAVIGATION
-============================================ */
-
-const PAGE_TITLES = {
-  dashboard: "Overview",
-  students: "Students",
-  add: "Add Student",
-  attendance: "Attendance",
-  results: "Examination Results",
-  subjects: "My Subjects",
-  settings: "Settings"
-};
-
-function navigate(page) {
-  if (!currentUser) return;
-
-  currentPage = page;
-
-  $$(".page").forEach(element => {
-    element.classList.remove("active");
+  currentTheme = theme;
+  document.body.classList.toggle("dark", theme === "dark");
+  localStorage.setItem("studenthub-theme", theme);
+
+  const icon = theme === "dark" ? "☀" : "☾";
+  $("themeToggle").textContent = icon;
+  $("authThemeToggle").textContent = icon;
+
+  document.querySelectorAll("[data-theme-choice]").forEach(button => {
+    button.classList.toggle("selected", button.dataset.themeChoice === theme);
   });
-
-  const target = $(`#page-${page}`);
-
-  if (target) {
-    target.classList.add("active");
-  } else {
-    return;
-  }
-
-  $$("[data-page]").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.page === page
-    );
-  });
-
-  setText("pageTitle", PAGE_TITLES[page] || page);
-  setText("breadcrumbPage", PAGE_TITLES[page] || page);
-
-  $("#sidebar")?.classList.remove("open");
-
-  if (page === "dashboard") renderDashboard();
-  if (page === "students") renderStudents();
-  if (page === "subjects") renderSubjects();
-  if (page === "attendance") renderAttendance();
-  if (page === "results") renderResults();
-  if (page === "settings") renderSettings();
 }
 
-document.addEventListener("click", event => {
-  const button = event.target.closest("[data-page]");
+applyTheme(currentTheme);
 
-  if (!button || !currentUser) return;
-
-  event.preventDefault();
-
-  const page = button.dataset.page;
-
-  if (page === "add") {
-    resetStudentForm();
-  }
-
-  navigate(page);
+$("themeToggle").addEventListener("click", () => {
+  applyTheme(currentTheme === "dark" ? "light" : "dark");
 });
 
-$("#menuToggle")?.addEventListener("click", () => {
-  $("#sidebar")?.classList.toggle("open");
+$("authThemeToggle").addEventListener("click", () => {
+  applyTheme(currentTheme === "dark" ? "light" : "dark");
 });
 
-/* ============================================
-   11. LOAD FIRESTORE DATA
-============================================ */
+document.querySelectorAll("[data-theme-choice]").forEach(button => {
+  button.addEventListener("click", () => applyTheme(button.dataset.themeChoice));
+});
 
-async function loadApplication() {
-  if (!currentUser) return;
+/* Authentication tabs */
+let authMode = "login";
 
-  try {
-    const profile = await getDoc(teacherRef());
+function setAuthMode(mode) {
+  authMode = mode;
+  const registering = mode === "register";
 
-    if (!profile.exists()) {
-      throw new Error("Teacher profile missing.");
-    }
+  $("loginTab").classList.toggle("active", !registering);
+  $("registerTab").classList.toggle("active", registering);
+  $("registerFields").classList.toggle("hidden", !registering);
 
-    teacherData = profile.data();
+  $("authTitle").textContent = registering ? "Create your account" : "Welcome back";
+  $("authSubtitle").textContent = registering
+    ? "Set up your academic workspace."
+    : "Sign in to continue to your workspace.";
 
-    const snapshot = await getDocs(studentsRef());
+  $("authSubmit").innerHTML = registering
+    ? 'Create account <span>→</span>'
+    : 'Sign in <span>→</span>';
 
-    students = snapshot.docs.map(item => ({
-      id: item.id,
-      ...item.data()
-    }));
-
-    attendanceRecords = [];
-    resultRecords = [];
-
-    for (const student of students) {
-      const [attendanceSnap, resultSnap] = await Promise.all([
-        getDocs(attendanceRef(student.id)),
-        getDocs(resultsRef(student.id))
-      ]);
-
-      attendanceSnap.forEach(record => {
-        attendanceRecords.push({
-          id: record.id,
-          studentId: student.id,
-          studentName: student.name,
-          rollNo: student.rollNo,
-          ...record.data()
-        });
-      });
-
-      resultSnap.forEach(record => {
-        resultRecords.push({
-          id: record.id,
-          studentId: student.id,
-          studentName: student.name,
-          rollNo: student.rollNo,
-          ...record.data()
-        });
-      });
-    }
-
-    attendanceRecords.sort((a, b) =>
-      String(b.date || "").localeCompare(String(a.date || ""))
-    );
-
-    renderProfile();
-    renderDashboard();
-    renderStudents();
-    renderSubjects();
-    renderAttendance();
-    renderResults();
-    populateSelects();
-
-  } catch (error) {
-    console.error("Application loading:", error);
-    notify("Unable to load academic records: " + error.message, "error");
-  }
+  $("registerName").required = registering;
+  $("authPassword").autocomplete = registering ? "new-password" : "current-password";
+  $("authMessage").textContent = "";
 }
 
-/* ============================================
-   12. TEACHER PROFILE
-============================================ */
+$("loginTab").addEventListener("click", () => setAuthMode("login"));
+$("registerTab").addEventListener("click", () => setAuthMode("register"));
 
-function renderProfile() {
-  const name = teacherData.name || currentUser.displayName || "Teacher";
-  const initial = name.charAt(0).toUpperCase();
+$("togglePassword").addEventListener("click", () => {
+  const input = $("authPassword");
+  const showing = input.type === "text";
+  input.type = showing ? "password" : "text";
+  $("togglePassword").textContent = showing ? "Show" : "Hide";
+});
 
-  setText("welcomeName", name.split(" ")[0]);
-  setText("teacherName", name);
-  setText("sidebarName", name);
-  setText("sidebarAvatar", initial);
-  setText("topAvatar", initial);
+function readableAuthError(error) {
+  const code = error?.code || "";
 
-  const date = new Date();
-
-  setText(
-    "currentDate",
-    date.toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    })
-  );
-}
-
-/* ============================================
-   13. STUDENT FORM
-============================================ */
-
-function resetStudentForm() {
-  editingStudentId = null;
-
-  $("#studentForm")?.reset();
-
-  setText("studentFormTitle", "Add new student");
-
-  const button = $("#saveStudentButton");
-
-  if (button) button.textContent = "Save student record →";
-}
-
-async function saveStudent(event) {
-  event.preventDefault();
-
-  if (!currentUser) return;
-
-  const form = event.currentTarget;
-  const button = $("#saveStudentButton");
-
-  const student = {
-    name: getValue(form, "name"),
-    rollNo: getValue(form, "rollNo"),
-    email: getValue(form, "email"),
-    phone: getValue(form, "phone"),
-    department: getValue(form, "department"),
-    year: getValue(form, "year"),
-    section: getValue(form, "section"),
-    cgpa: Number(getValue(form, "cgpa") || 0),
-    updatedAt: serverTimestamp()
+  const messages = {
+    "auth/email-already-in-use": "An account with this email already exists. Please sign in.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/weak-password": "Choose a stronger password with at least 6 characters.",
+    "auth/user-not-found": "No account was found with this email address.",
+    "auth/wrong-password": "The password is incorrect. Please try again.",
+    "auth/invalid-credential": "The email or password is incorrect.",
+    "auth/too-many-requests": "Too many attempts. Please try again later.",
+    "auth/network-request-failed": "Network connection failed. Check your internet connection.",
+    "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase Authentication."
   };
 
-  if (!student.name || !student.rollNo) {
-    return notify("Student name and roll number are required.", "error");
-  }
-
-  if (!Number.isFinite(student.cgpa) || student.cgpa < 0 || student.cgpa > 10) {
-    return notify("CGPA must be between 0 and 10.", "error");
-  }
-
-  const duplicate = students.find(item =>
-    item.rollNo.toLowerCase() === student.rollNo.toLowerCase() &&
-    item.id !== editingStudentId
-  );
-
-  if (duplicate) {
-    return notify("This roll number already exists.", "error");
-  }
-
-  setLoading(button, true, "Save student record →");
-
-  try {
-    if (editingStudentId) {
-      await updateDoc(studentRef(editingStudentId), student);
-      notify("Student record updated successfully.");
-    } else {
-      await addDoc(studentsRef(), {
-        ...student,
-        createdAt: serverTimestamp()
-      });
-      notify("Student added successfully.");
-    }
-
-    resetStudentForm();
-
-    await loadApplication();
-
-    navigate("students");
-
-  } catch (error) {
-    console.error(error);
-    notify(error.message, "error");
-
-  } finally {
-    setLoading(button, false, "Save student record →");
-  }
+  return messages[code] || error?.message || "Something went wrong. Please try again.";
 }
 
-/* ============================================
-   14. STUDENT DIRECTORY
-============================================ */
-
-function renderStudents(list = students) {
-  const tbody = $("#studentTableBody");
-
-  if (!tbody) return;
-
-  setText("studentCountLabel", `${list.length} student records`);
-
-  if (!list.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="6" class="empty-cell">
-        No matching student records found.
-      </td></tr>
-    `;
-    return;
-  }
-
-  tbody.innerHTML = list.map(student => `
-    <tr>
-      <td><strong>${escapeHTML(student.rollNo)}</strong></td>
-      <td>${escapeHTML(student.name)}</td>
-      <td>${escapeHTML(student.email || "—")}</td>
-      <td>${escapeHTML(student.department || "—")}</td>
-      <td>${escapeHTML(student.year || "—")}</td>
-      <td>
-        <button data-edit-student="${student.id}">Edit</button>
-        <button data-delete-student="${student.id}">Delete</button>
-      </td>
-    </tr>
-  `).join("");
-}
-
-/* ============================================
-   15. STUDENT SEARCH
-============================================ */
-
-$("#studentSearch")?.addEventListener("input", event => {
-  const search = event.target.value.toLowerCase();
-
-  const filtered = students.filter(student => {
-    const text = [
-      student.name,
-      student.rollNo,
-      student.email,
-      student.department,
-      student.year
-    ].join(" ").toLowerCase();
-
-    return text.includes(search);
-  });
-
-  renderStudents(filtered);
-});
-
-/* ============================================
-   16. EDIT STUDENT
-============================================ */
-
-function editStudent(id) {
-  const student = students.find(item => item.id === id);
-
-  if (!student) return;
-
-  editingStudentId = id;
-
-  const form = $("#studentForm");
-
-  if (!form) return;
-
-  [
-    "name",
-    "rollNo",
-    "email",
-    "phone",
-    "department",
-    "year",
-    "section",
-    "cgpa"
-  ].forEach(key => {
-    const field = form.elements.namedItem(key);
-
-    if (field) {
-      field.value = student[key] ?? "";
-    }
-  });
-
-  setText("studentFormTitle", "Edit student record");
-
-  const button = $("#saveStudentButton");
-
-  if (button) button.textContent = "Update student record →";
-
-  navigate("add");
-}
-
-/* ============================================
-   17. DELETE STUDENT
-============================================ */
-
-async function deleteStudent(id) {
-  const student = students.find(item => item.id === id);
-
-  if (!student) return;
-
-  if (!confirm(`Permanently delete ${student.name}'s record and associated academic entries?`)) {
-    return;
-  }
-
-  try {
-    const [attendanceSnap, resultSnap] = await Promise.all([
-      getDocs(attendanceRef(id)),
-      getDocs(resultsRef(id))
-    ]);
-
-    await Promise.all([
-      ...attendanceSnap.docs.map(item => deleteDoc(item.ref)),
-      ...resultSnap.docs.map(item => deleteDoc(item.ref))
-    ]);
-
-    await deleteDoc(studentRef(id));
-
-    await loadApplication();
-
-    notify("Student and associated records deleted.");
-
-  } catch (error) {
-    console.error(error);
-    notify("Unable to delete student: " + error.message, "error");
-  }
-}
-
-document.addEventListener("click", event => {
-  const edit = event.target.closest("[data-edit-student]");
-  const remove = event.target.closest("[data-delete-student]");
-
-  if (edit) editStudent(edit.dataset.editStudent);
-
-  if (remove) deleteStudent(remove.dataset.deleteStudent);
-});
-
-/* ============================================
-   18. SELECT DROPDOWNS
-============================================ */
-
-function populateSelects() {
-  const options = `
-    <option value="">Select student</option>
-    ${students.map(student => `
-      <option value="${student.id}">
-        ${escapeHTML(student.name)} (${escapeHTML(student.rollNo)})
-      </option>
-    `).join("")}
-  `;
-
-  ["#attendanceStudent", "#resultStudent"].forEach(selector => {
-    const select = $(selector);
-
-    if (!select) return;
-
-    const previous = select.value;
-    select.innerHTML = options;
-
-    if (students.some(student => student.id === previous)) {
-      select.value = previous;
-    }
-  });
-
-  const subjectSelect = $("#resultSubject");
-
-  if (subjectSelect) {
-    const previous = subjectSelect.value;
-
-    subjectSelect.innerHTML = `
-      <option value="">Select subject</option>
-      ${(teacherData.subjects || []).map(subject => `
-        <option value="${escapeHTML(subject)}">
-          ${escapeHTML(SUBJECTS[subject] || subject)}
-        </option>
-      `).join("")}
-    `;
-
-    if ((teacherData.subjects || []).includes(previous)) {
-      subjectSelect.value = previous;
-    }
-  }
-}
-
-/* ============================================
-   19. ATTENDANCE MANAGEMENT
-============================================ */
-
-async function saveAttendance(event) {
+$("authForm").addEventListener("submit", async event => {
   event.preventDefault();
 
-  const form = event.currentTarget;
+  const button = $("authSubmit");
+  const message = $("authMessage");
+  const email = $("authEmail").value.trim().toLowerCase();
+  const password = $("authPassword").value;
 
-  const studentId = getValue(form, "studentId");
-  const date = getValue(form, "date");
-  const status = getValue(form, "status");
-  const remarks = getValue(form, "remarks");
+  setMessage(message, "");
 
-  if (!studentId || !date || !status) {
-    return notify("Complete the attendance details.", "error");
-  }
-
-  const existing = attendanceRecords.find(item =>
-    item.studentId === studentId && item.date === date
-  );
-
-  if (existing) {
-    return notify("Attendance is already recorded for this student on this date.", "error");
-  }
-
-  try {
-    await addDoc(attendanceRef(studentId), {
-      date,
-      status,
-      remarks,
-      createdAt: serverTimestamp()
-    });
-
-    form.reset();
-
-    await loadApplication();
-
-    notify("Attendance saved successfully.");
-
-  } catch (error) {
-    notify(error.message, "error");
-  }
-}
-
-function renderAttendance() {
-  const tbody = $("#attendanceTable");
-
-  if (!tbody) return;
-
-  if (!attendanceRecords.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="4" class="empty-cell">
-        No attendance records available.
-      </td></tr>
-    `;
+  if (!email || !password) {
+    setMessage(message, "Enter your email address and password.");
     return;
   }
 
-  tbody.innerHTML = attendanceRecords.map(record => `
-    <tr>
-      <td>${escapeHTML(record.studentName)}</td>
-      <td>${escapeHTML(record.date || "—")}</td>
-      <td><strong>${escapeHTML(record.status)}</strong></td>
-      <td>${escapeHTML(record.remarks || "—")}</td>
-    </tr>
-  `).join("");
-}
-
-/* ============================================
-   20. EXAMINATION RESULTS
-============================================ */
-
-async function saveResult(event) {
-  event.preventDefault();
-
-  const form = event.currentTarget;
-
-  const studentId = getValue(form, "studentId");
-  const subject = getValue(form, "subject");
-  const exam = getValue(form, "exam");
-  const marks = Number(getValue(form, "marks"));
-  const maxMarks = Number(getValue(form, "maxMarks"));
-  const date = getValue(form, "date");
-
-  if (
-    !studentId ||
-    !subject ||
-    !exam ||
-    !Number.isFinite(marks) ||
-    !Number.isFinite(maxMarks) ||
-    maxMarks <= 0 ||
-    marks < 0 ||
-    marks > maxMarks
-  ) {
-    return notify("Enter valid examination details and marks.", "error");
-  }
-
-  const duplicate = resultRecords.find(record =>
-    record.studentId === studentId &&
-    record.subject === subject &&
-    record.exam === exam
-  );
-
-  if (duplicate) {
-    return notify("This examination result has already been recorded.", "error");
-  }
-
-  try {
-    await addDoc(resultsRef(studentId), {
-      subject,
-      exam,
-      marks,
-      maxMarks,
-      percentage: Number(((marks / maxMarks) * 100).toFixed(2)),
-      date: date || today(),
-      createdAt: serverTimestamp()
-    });
-
-    form.reset();
-
-    await loadApplication();
-
-    notify("Examination result saved successfully.");
-
-  } catch (error) {
-    notify(error.message, "error");
-  }
-}
-
-function renderResults() {
-  const tbody = $("#resultsTable");
-
-  if (!tbody) return;
-
-  if (!resultRecords.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="6" class="empty-cell">
-        No examination results recorded.
-      </td></tr>
-    `;
+  if (password.length < 6) {
+    setMessage(message, "Password must contain at least 6 characters.");
     return;
   }
 
-  tbody.innerHTML = resultRecords.map(record => `
-    <tr>
-      <td>${escapeHTML(record.studentName)}</td>
-      <td>${escapeHTML(SUBJECTS[record.subject] || record.subject)}</td>
-      <td>${escapeHTML(record.exam)}</td>
-      <td>${Number(record.marks)} / ${Number(record.maxMarks)}</td>
-      <td><strong>${Number(record.percentage).toFixed(1)}%</strong></td>
-      <td>${escapeHTML(record.date || "—")}</td>
-    </tr>
-  `).join("");
-}
+  if (authMode === "register") {
+    const name = $("registerName").value.trim();
+    const subjects = selectedCheckboxValues($("registerSubjects"));
 
-/* ============================================
-   21. SUBJECT MANAGEMENT
-============================================ */
-
-function renderSubjects() {
-  const subjects = teacherData.subjects || [];
-
-  setText("totalSubjects", subjects.length);
-
-  const makeCards = () => subjects.map((subject, index) => `
-    <article class="subject-card">
-      <div class="subject-number">SUBJECT ${String(index + 1).padStart(2, "0")}</div>
-      <h3>${escapeHTML(SUBJECTS[subject] || subject)}</h3>
-      <p>Academic subject · ${escapeHTML(subject)}</p>
-    </article>
-  `).join("");
-
-  const dashboard = $("#dashboardSubjects");
-  const directory = $("#subjectCards");
-
-  if (dashboard) {
-    dashboard.innerHTML = subjects.length
-      ? makeCards()
-      : "<p>No subjects assigned. Update your settings.</p>";
-  }
-
-  if (directory) {
-    directory.innerHTML = subjects.length
-      ? makeCards()
-      : "<p>No registered subjects found.</p>";
-  }
-
-  populateSelects();
-}
-
-/* ============================================
-   22. DASHBOARD ANALYTICS
-============================================ */
-
-function renderDashboard() {
-  if (!currentUser) return;
-
-  setText("totalStudents", students.length);
-  setText("totalSubjects", (teacherData.subjects || []).length);
-
-  const attendanceTotal = attendanceRecords.length;
-
-  const presentTotal = attendanceRecords.filter(record =>
-    String(record.status).toLowerCase() === "present"
-  ).length;
-
-  const attendancePercentage = attendanceTotal
-    ? (presentTotal / attendanceTotal) * 100
-    : 0;
-
-  setText(
-    "averageAttendance",
-    attendancePercentage.toFixed(1) + "%"
-  );
-
-  const marksPercentage = resultRecords.map(record =>
-    Number(record.percentage)
-  ).filter(Number.isFinite);
-
-  setText(
-    "averageMarks",
-    average(marksPercentage).toFixed(1) + "%"
-  );
-
-  const tbody = $("#recentStudents");
-
-  if (tbody) {
-    const recent = [...students].slice(-5).reverse();
-
-    tbody.innerHTML = recent.length
-      ? recent.map(student => `
-          <tr>
-            <td><strong>${escapeHTML(student.name)}</strong></td>
-            <td>${escapeHTML(student.rollNo)}</td>
-            <td>${escapeHTML(student.year || "—")}</td>
-          </tr>
-        `).join("")
-      : `<tr><td colspan="3" class="empty-cell">
-          No student records yet.
-        </td></tr>`;
-  }
-
-  renderSubjects();
-}
-
-/* ============================================
-   23. SETTINGS
-============================================ */
-
-function renderSettings() {
-  const form = $("#settingsForm");
-
-  if (!form) return;
-
-  const name = form.elements.namedItem("name");
-  const email = form.elements.namedItem("email");
-
-  if (name) name.value = teacherData.name || "";
-  if (email) email.value = currentUser.email || "";
-
-  form.querySelectorAll('input[name="subjects"]').forEach(input => {
-    input.checked = (teacherData.subjects || []).includes(input.value);
-  });
-}
-
-async function saveSettings(event) {
-  event.preventDefault();
-
-  const form = event.currentTarget;
-
-  const name = getValue(form, "name");
-  const subjects = selectedSubjects(form);
-
-  if (!name) {
-    return notify("Teacher name is required.", "error");
-  }
-
-  if (!subjects.length) {
-    return notify("Select at least one subject.", "error");
-  }
-
-  try {
-    await updateProfile(currentUser, {
-      displayName: name
-    });
-
-    await setDoc(teacherRef(), {
-      name,
-      subjects,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    teacherData.name = name;
-    teacherData.subjects = subjects;
-
-    renderProfile();
-    renderSubjects();
-
-    notify("Your profile has been updated.");
-
-  } catch (error) {
-    console.error(error);
-    notify(error.message, "error");
-  }
-}
-
-/* ============================================
-   24. FORM CONNECTIONS
-============================================ */
-
-function connectForms() {
-  $("#loginForm")?.addEventListener("submit", loginTeacher);
-  $("#registerForm")?.addEventListener("submit", registerTeacher);
-  $("#studentForm")?.addEventListener("submit", saveStudent);
-  $("#attendanceForm")?.addEventListener("submit", saveAttendance);
-  $("#resultForm")?.addEventListener("submit", saveResult);
-  $("#settingsForm")?.addEventListener("submit", saveSettings);
-
-  $("#forgotPassword")?.addEventListener("click", resetPassword);
-
-  $("#logoutButton")?.addEventListener("click", logout);
-  $("#settingsLogout")?.addEventListener("click", logout);
-
-  $("#cancelStudent")?.addEventListener("click", () => {
-    resetStudentForm();
-    navigate("students");
-  });
-
-  $("#attendanceForm")?.elements.namedItem("date")
-    ?.setAttribute("max", today());
-
-  $("#attendanceForm")?.elements.namedItem("date")
-    ?.setAttribute("value", today());
-}
-
-/* ============================================
-   25. FIREBASE AUTH STATE
-============================================ */
-
-onAuthStateChanged(auth, async user => {
-  currentUser = user;
-
-  if (!user) {
-    teacherData = {};
-    students = [];
-    attendanceRecords = [];
-    resultRecords = [];
-
-    showLogin();
-    return;
-  }
-
-  try {
-    const profile = await getDoc(
-      doc(db, "teachers", user.uid)
-    );
-
-    if (!profile.exists()) {
-      await signOut(auth);
-      showLogin();
+    if (!name) {
+      setMessage(message, "Enter your full name.");
       return;
     }
 
-    teacherData = profile.data();
+    if (!subjects.length) {
+      setMessage(message, "Select at least one subject.");
+      return;
+    }
 
-    await loadApplication();
+    setLoading(button, true, "Create account");
 
-    showDashboard();
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(credential.user, { displayName: name });
 
-  } catch (error) {
-    console.error(error);
-    notify("Unable to verify your teacher account.", "error");
-    await signOut(auth);
-    showLogin();
+      await setDoc(doc(db, "teachers", credential.user.uid), {
+        uid: credential.user.uid,
+        name,
+        email,
+        subjects,
+        createdAt: serverTimestamp()
+      });
+
+      currentProfile = { name, email, subjects };
+      showToast("Your account has been created.");
+    } catch (error) {
+      console.error("Registration error:", error);
+      setMessage(message, readableAuthError(error));
+      setLoading(button, false, "Create account");
+    }
+  } else {
+    setLoading(button, true, "Sign in");
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error("Login error:", error);
+      setMessage(message, readableAuthError(error));
+      setLoading(button, false, "Sign in");
+    }
   }
 });
 
-/* ============================================
-   26. INITIALIZATION
-============================================ */
+/* Authentication state */
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    currentUser = null;
+    currentProfile = {};
+    students = [];
+    $("authScreen").classList.remove("hidden");
+    $("appScreen").classList.add("hidden");
+    $("authSubmit").disabled = false;
+    $("authSubmit").innerHTML = authMode === "register"
+      ? 'Create account <span>→</span>'
+      : 'Sign in <span>→</span>';
+    return;
+  }
 
-function initializeApplication() {
-  initializeTheme();
-  connectForms();
+  currentUser = user;
 
-  showLogin();
+  try {
+    await loadProfile();
+    await loadStudents();
 
-  console.log("StudentHub Academic Management Portal ready.");
+    $("authScreen").classList.add("hidden");
+    $("appScreen").classList.remove("hidden");
+
+    renderProfile();
+    renderAll();
+    setPage("overview");
+  } catch (error) {
+    console.error("Workspace loading error:", error);
+    $("authScreen").classList.remove("hidden");
+    $("appScreen").classList.add("hidden");
+    setMessage($("authMessage"), readableDatabaseError(error));
+  }
+});
+
+function readableDatabaseError(error) {
+  if (error?.code === "permission-denied") {
+    return "Database access is restricted. Please check your Firebase Firestore security rules.";
+  }
+  if (error?.code === "unavailable") {
+    return "The database is temporarily unavailable. Please try again.";
+  }
+  return error?.message || "Unable to load your workspace.";
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initializeApplication);
-} else {
-  initializeApplication();
+async function loadProfile() {
+  const snapshot = await getDoc(getTeacherRef());
+
+  if (snapshot.exists()) {
+    currentProfile = snapshot.data();
+  } else {
+    currentProfile = {
+      uid: currentUser.uid,
+      name: currentUser.displayName || "Account",
+      email: currentUser.email,
+      subjects: [...SUBJECTS]
+    };
+
+    await setDoc(getTeacherRef(), {
+      ...currentProfile,
+      createdAt: serverTimestamp()
+    }, { merge: true });
+  }
 }
+
+async function loadStudents() {
+  const snapshot = await getDocs(getStudentsRef());
+  students = snapshot.docs.map(item => ({
+    id: item.id,
+    ...item.data()
+  }));
+
+  students.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0;
+    const bTime = b.createdAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+}
+
+/* Profile and header */
+function renderProfile() {
+  const name = currentProfile.name || currentUser.displayName || "Account";
+  const email = currentUser.email || currentProfile.email || "";
+
+  $("sidebarName").textContent = name;
+  $("sidebarEmail").textContent = email;
+  $("sidebarAvatar").textContent = initials(name);
+  $("topAvatar").textContent = initials(name);
+  $("welcomeName").textContent = name.split(" ")[0];
+  $("settingsName").value = name;
+  $("settingsEmail").value = email;
+
+  $("todayLabel").textContent = new Intl.DateTimeFormat("en", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(new Date());
+
+  renderSettingsSubjects();
+}
+
+/* Navigation */
+const pageTitles = {
+  overview: "Overview",
+  students: "Students",
+  attendance: "Attendance",
+  results: "Academic results",
+  subjects: "Subjects",
+  settings: "Settings"
+};
+
+function setPage(page) {
+  if (!pageTitles[page]) return;
+
+  document.querySelectorAll(".page").forEach(section => {
+    section.classList.toggle("active", section.id === `page-${page}`);
+  });
+
+  document.querySelectorAll(".nav-link").forEach(button => {
+    button.classList.toggle("active", button.dataset.page === page);
+  });
+
+  $("topbarTitle").textContent = pageTitles[page];
+  $("breadcrumbPage").textContent = pageTitles[page];
+
+  closeSidebar();
+}
+
+document.querySelectorAll("[data-page]").forEach(button => {
+  button.addEventListener("click", () => setPage(button.dataset.page));
+});
+
+$("menuButton").addEventListener("click", () => {
+  $("sidebar").classList.add("open");
+  $("sidebarOverlay").classList.add("show");
+});
+
+$("closeSidebar").addEventListener("click", closeSidebar);
+$("sidebarOverlay").addEventListener("click", closeSidebar);
+
+function closeSidebar() {
+  $("sidebar").classList.remove("open");
+  $("sidebarOverlay").classList.remove("show");
+}
+
+$("signOutButton").addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+    showToast("You have signed out.");
+  } catch (error) {
+    showToast(readableAuthError(error));
+  }
+});
+
+/* Main rendering */
+function renderAll() {
+  renderDashboard();
+  renderStudents();
+  populateStudentSelectors();
+  renderSubjectCards();
+  renderSettingsSubjects();
+}
+
+function attendancePercentage(attendance = {}) {
+  let held = 0;
+  let attended = 0;
+
+  Object.values(attendance).forEach(value => {
+    if (value && typeof value === "object") {
+      held += Number(value.held) || 0;
+      attended += Number(value.attended) || 0;
+    }
+  });
+
+  return held > 0 ? (attended / held) * 100 : null;
+}
+
+function studentAverageCgpa(results = {}) {
+  const values = Object.values(results)
+    .map(value => typeof value === "object" ? Number(value.sgpa) : Number(value))
+    .filter(value => Number.isFinite(value) && value > 0 && value <= 10);
+
+  return values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : null;
+}
+
+function renderDashboard() {
+  const subjects = getAssignedSubjects();
+  const attendanceValues = students
+    .map(student => attendancePercentage(student.attendance || {}))
+    .filter(value => value !== null);
+
+  const cgpaValues = students
+    .map(student => studentAverageCgpa(student.results || {}))
+    .filter(value => value !== null);
+
+  $("statStudents").textContent = students.length;
+  $("statSubjects").textContent = subjects.length;
+  $("statAttendance").textContent = attendanceValues.length
+    ? `${(attendanceValues.reduce((a, b) => a + b, 0) / attendanceValues.length).toFixed(1)}%`
+    : "—";
+  $("statCgpa").textContent = cgpaValues.length
+    ? (cgpaValues.reduce((a, b) => a + b, 0) / cgpaValues.length).toFixed(2)
+    : "—";
+
+  const recent = students.slice(0, 5);
+
+  $("recentStudents").innerHTML = recent.length
+    ? recent.map(student => `
+      <div class="recent-item">
+        <div class="student-mini-avatar">${escapeHTML(initials(student.name))}</div>
+        <div class="recent-item-info">
+          <strong>${escapeHTML(student.name || "Unnamed student")}</strong>
+          <small>${escapeHTML(student.rollNo || student.roll || "No roll number")}</small>
+        </div>
+        <span>${escapeHTML(student.department || "CSE")}</span>
+      </div>
+    `).join("")
+    : `<div class="empty-state compact-empty">No student records have been added yet.</div>`;
+
+  $("overviewSubjects").innerHTML = subjects.map(subject => `
+    <button class="overview-subject" data-subject-open="${subject}">
+      <span class="subject-letter">${subject.slice(0, 2)}</span>
+      <strong>${subject}</strong>
+    </button>
+  `).join("");
+
+  document.querySelectorAll("[data-subject-open]").forEach(button => {
+    button.addEventListener("click", () => openSubject(button.dataset.subjectOpen));
+  });
+}
+
+/* Student records */
+function renderStudents(search = "") {
+  const query = search.trim().toLowerCase();
+
+  const filtered = students.filter(student => {
+    const searchable = [
+      student.name,
+      student.rollNo,
+      student.roll,
+      student.email,
+      student.department
+    ].join(" ").toLowerCase();
+
+    return searchable.includes(query);
+  });
+
+  $("studentCount").textContent = `${filtered.length} record${filtered.length === 1 ? "" : "s"}`;
+  $("studentsEmpty").classList.toggle("hidden", filtered.length !== 0);
+
+  $("studentsTableBody").innerHTML = filtered.map(student => {
+    const roll = student.rollNo || student.roll || "—";
+    const subjects = Array.isArray(student.subjects) ? student.subjects : [];
+
+    return `
+      <tr>
+        <td>
+          <div class="student-cell">
+            <span class="table-avatar">${escapeHTML(initials(student.name))}</span>
+            <span><strong>${escapeHTML(student.name || "Unnamed")}</strong>
+            <small>${escapeHTML(student.email || "No email")}</small></span>
+          </div>
+        </td>
+        <td>${escapeHTML(roll)}</td>
+        <td>${escapeHTML(student.department || "—")}</td>
+        <td>${escapeHTML(student.year ? `${student.year}${student.year == 1 ? "st" : student.year == 2 ? "nd" : student.year == 3 ? "rd" : "th"} Year` : "—")} ${escapeHTML(student.section || "")}</td>
+        <td>${escapeHTML(subjects.join(", ") || "—")}</td>
+        <td>
+          <div class="table-actions">
+            <button class="table-action" data-edit-student="${student.id}">Edit</button>
+            <button class="table-action delete" data-delete-student="${student.id}">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  document.querySelectorAll("[data-edit-student]").forEach(button => {
+    button.addEventListener("click", () => openStudentModal(button.dataset.editStudent));
+  });
+
+  document.querySelectorAll("[data-delete-student]").forEach(button => {
+    button.addEventListener("click", () => removeStudent(button.dataset.deleteStudent));
+  });
+}
+
+$("studentSearch").addEventListener("input", event => renderStudents(event.target.value));
+
+/* Student modal */
+function openStudentModal(studentId = "") {
+  const student = studentId ? students.find(item => item.id === studentId) : null;
+
+  $("studentForm").reset();
+  $("editingStudentId").value = student?.id || "";
+  $("modalTitle").textContent = student ? "Edit student" : "Add student";
+  $("saveStudentButton").textContent = student ? "Save changes" : "Save student";
+  $("studentName").value = student?.name || "";
+  $("studentRoll").value = student?.rollNo || student?.roll || "";
+  $("studentEmail").value = student?.email || "";
+  $("studentPhone").value = student?.phone || "";
+  $("studentDepartment").value = student?.department || "CSE";
+  $("studentYear").value = String(student?.year || "1");
+  $("studentSection").value = student?.section || "";
+
+  const selected = student?.subjects || getAssignedSubjects();
+  $("studentSubjects").innerHTML = subjectCheckboxMarkup(selected);
+  $("studentFormMessage").textContent = "";
+  $("modalBackdrop").classList.remove("hidden");
+}
+
+function closeStudentModal() {
+  $("modalBackdrop").classList.add("hidden");
+}
+
+document.querySelectorAll('[data-action="add-student"]').forEach(button => {
+  button.addEventListener("click", () => openStudentModal());
+});
+
+$("closeModal").addEventListener("click", closeStudentModal);
+$("cancelStudent").addEventListener("click", closeStudentModal);
+
+$("modalBackdrop").addEventListener("click", event => {
+  if (event.target === $("modalBackdrop")) closeStudentModal();
+});
+
+$("studentForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  const button = $("saveStudentButton");
+  const message = $("studentFormMessage");
+  const studentId = $("editingStudentId").value;
+  const name = $("studentName").value.trim();
+  const rollNo = $("studentRoll").value.trim();
+  const subjects = selectedCheckboxValues($("studentSubjects"));
+
+  if (!name || !rollNo) {
+    setMessage(message, "Student name and roll number are required.");
+    return;
+  }
+
+  if (!subjects.length) {
+    setMessage(message, "Select at least one subject.");
+    return;
+  }
+
+  const duplicate = students.find(student =>
+    (student.rollNo || student.roll || "").toLowerCase() === rollNo.toLowerCase()
+    && student.id !== studentId
+  );
+
+  if (duplicate) {
+    setMessage(message, "A student with this roll number already exists.");
+    return;
+  }
+
+  const existing = students.find(student => student.id === studentId);
+
+  const studentData = {
+    name,
+    roll: rollNo,
+    rollNo,
+    email: $("studentEmail").value.trim(),
+    phone: $("studentPhone").value.trim(),
+    department: $("studentDepartment").value.trim() || "CSE",
+    year: Number($("studentYear").value),
+    section: $("studentSection").value.trim(),
+    subjects,
+    attendance: existing?.attendance || {},
+    results: existing?.results || {},
+    updatedAt: serverTimestamp()
+  };
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+
+  try {
+    if (studentId) {
+      await updateDoc(getStudentRef(studentId), studentData);
+      showToast("Student record updated.");
+    } else {
+      await addDoc(getStudentsRef(), {
+        ...studentData,
+        createdAt: serverTimestamp()
+      });
+      showToast("Student added successfully.");
+    }
+
+    await loadStudents();
+    renderAll();
+    closeStudentModal();
+  } catch (error) {
+    console.error("Student save error:", error);
+    setMessage(message, readableDatabaseError(error));
+  } finally {
+    button.disabled = false;
+    button.textContent = studentId ? "Save changes" : "Save student";
+  }
+});
+
+async function removeStudent(studentId) {
+  const student = students.find(item => item.id === studentId);
+  if (!student) return;
+
+  const confirmed = window.confirm(`Delete the student record for ${student.name}? This action cannot be undone.`);
+  if (!confirmed) return;
+
+  try {
+    await deleteDoc(getStudentRef(studentId));
+    await loadStudents();
+    renderAll();
+    showToast("Student record deleted.");
+  } catch (error) {
+    console.error("Student delete error:", error);
+    showToast(readableDatabaseError(error));
+  }
+}
+
+/* Student selectors */
+function populateStudentSelectors() {
+  const options = students.map(student => `
+    <option value="${student.id}">${escapeHTML(student.name)} — ${escapeHTML(student.rollNo || student.roll || "")}</option>
+  `).join("");
+
+  $("attendanceStudent").innerHTML = `<option value="">Select student</option>${options}`;
+  $("resultsStudent").innerHTML = `<option value="">Select student</option>${options}`;
+
+  const subjects = getAssignedSubjects();
+  $("attendanceSubject").innerHTML = subjects.map(subject =>
+    `<option value="${subject}">${subject} — ${escapeHTML(SUBJECT_INFO[subject])}</option>`
+  ).join("");
+
+  if (!subjects.length) {
+    $("attendanceSubject").innerHTML = `<option value="">No subjects assigned</option>`;
+  }
+}
+
+/* Attendance */
+$("attendanceStudent").addEventListener("change", renderAttendanceWorkspace);
+$("attendanceSubject").addEventListener("change", renderAttendanceWorkspace);
+
+function renderAttendanceWorkspace() {
+  const student = students.find(item => item.id === $("attendanceStudent").value);
+  const subject = $("attendanceSubject").value;
+
+  if (!student || !subject) {
+    $("attendanceWorkspace").innerHTML = "Select a student and subject to manage attendance.";
+    $("attendanceWorkspace").className = "workspace-placeholder";
+    return;
+  }
+
+  const record = student.attendance?.[subject] || {};
+  const held = Number(record.held) || 0;
+  const attended = Number(record.attended) || 0;
+  const percentage = held > 0 ? (attended / held) * 100 : 0;
+
+  $("attendanceWorkspace").className = "workspace-content";
+  $("attendanceWorkspace").innerHTML = `
+    <div class="workspace-title">
+      <div><strong>${escapeHTML(student.name)}</strong><br><span>${escapeHTML(subject)} · ${escapeHTML(SUBJECT_INFO[subject])}</span></div>
+      <span>${escapeHTML(student.rollNo || student.roll || "")}</span>
+    </div>
+    <div class="attendance-metrics">
+      <div class="metric-box"><span>Classes held</span><strong>${held}</strong></div>
+      <div class="metric-box"><span>Classes attended</span><strong>${attended}</strong></div>
+      <div class="metric-box"><span>Attendance</span><strong>${held ? percentage.toFixed(1) + "%" : "—"}</strong></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:${Math.min(percentage, 100)}%"></div></div>
+    <form id="attendanceForm" class="attendance-form">
+      <div class="form-field"><label for="classesHeld">Total classes held</label><input id="classesHeld" type="number" min="0" max="10000" value="${held}" required></div>
+      <div class="form-field"><label for="classesAttended">Classes attended</label><input id="classesAttended" type="number" min="0" max="10000" value="${attended}" required></div>
+      <button class="primary-button" type="submit">Save attendance</button>
+    </form>
+    <p id="attendanceMessage" class="form-message"></p>
+  `;
+
+  $("attendanceForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const newHeld = Number($("classesHeld").value);
+    const newAttended = Number($("classesAttended").value);
+
+    if (!Number.isInteger(newHeld) || !Number.isInteger(newAttended) ||
+        newHeld < 0 || newAttended < 0 || newAttended > newHeld) {
+      setMessage($("attendanceMessage"), "Enter valid class counts. Attended classes cannot exceed classes held.");
+      return;
+    }
+
+    try {
+      const updatedAttendance = {
+        ...(student.attendance || {}),
+        [subject]: { held: newHeld, attended: newAttended }
+      };
+
+      await updateDoc(getStudentRef(student.id), {
+        attendance: updatedAttendance,
+        updatedAt: serverTimestamp()
+      });
+
+      await loadStudents();
+      renderDashboard();
+      renderAttendanceWorkspace();
+      showToast("Attendance saved successfully.");
+    } catch (error) {
+      console.error("Attendance save error:", error);
+      setMessage($("attendanceMessage"), readableDatabaseError(error));
+    }
+  });
+}
+
+/* Academic results */
+$("resultsStudent").addEventListener("change", renderResultsWorkspace);
+
+function renderResultsWorkspace() {
+  const student = students.find(item => item.id === $("resultsStudent").value);
+
+  if (!student) {
+    $("resultsWorkspace").innerHTML = "Select a student to view and update academic results.";
+    $("resultsWorkspace").className = "workspace-placeholder";
+    return;
+  }
+
+  const results = student.results || {};
+  const entries = Object.entries(results).sort((a, b) => a[0].localeCompare(b[0]));
+  const cgpa = studentAverageCgpa(results);
+
+  $("resultsWorkspace").className = "workspace-content";
+  $("resultsWorkspace").innerHTML = `
+    <div class="workspace-title">
+      <div><strong>${escapeHTML(student.name)}</strong><br><span>${escapeHTML(student.rollNo || student.roll || "")}</span></div>
+      <div><span>Overall CGPA</span><br><strong>${cgpa === null ? "—" : cgpa.toFixed(2)}</strong></div>
+    </div>
+    <form id="resultForm" class="attendance-form">
+      <div class="form-field">
+        <label for="resultSemester">Semester</label>
+        <select id="resultSemester">
+          ${Array.from({ length: 8 }, (_, index) => `<option value="Semester ${index + 1}">Semester ${index + 1}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="resultSgpa">SGPA (0–10)</label>
+        <input id="resultSgpa" type="number" min="0" max="10" step="0.01" required placeholder="e.g. 8.50">
+      </div>
+      <button type="submit" class="primary-button">Save result</button>
+    </form>
+    <p id="resultMessage" class="form-message"></p>
+    <div style="margin-top:22px">
+      <h3 style="font:800 13px Manrope">Semester records</h3>
+      ${entries.length ? entries.map(([semester, value]) => {
+        const sgpa = typeof value === "object" ? Number(value.sgpa) : Number(value);
+        return `
+          <div class="result-row">
+            <div><strong>${escapeHTML(semester)}</strong><br><span>Semester performance</span></div>
+            <div><strong>${Number.isFinite(sgpa) ? sgpa.toFixed(2) : "—"}</strong>
+              <button class="table-action delete" data-delete-result="${escapeHTML(semester)}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join("") : `<div class="empty-state">No semester results have been recorded.</div>`}
+    </div>
+  `;
+
+  $("resultForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const semester = $("resultSemester").value;
+    const sgpa = Number($("resultSgpa").value);
+
+    if (!Number.isFinite(sgpa) || sgpa < 0 || sgpa > 10) {
+      setMessage($("resultMessage"), "Enter an SGPA between 0 and 10.");
+      return;
+    }
+
+    try {
+      const updatedResults = {
+        ...(student.results || {}),
+        [semester]: { sgpa }
+      };
+
+      await updateDoc(getStudentRef(student.id), {
+        results: updatedResults,
+        updatedAt: serverTimestamp()
+      });
+
+      await loadStudents();
+      renderDashboard();
+      renderResultsWorkspace();
+      showToast("Academic result saved.");
+    } catch (error) {
+      console.error("Result save error:", error);
+      setMessage($("resultMessage"), readableDatabaseError(error));
+    }
+  });
+
+  document.querySelectorAll("[data-delete-result]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const semester = button.dataset.deleteResult;
+      const updatedResults = { ...(student.results || {}) };
+      delete updatedResults[semester];
+
+      try {
+        await updateDoc(getStudentRef(student.id), {
+          results: updatedResults,
+          updatedAt: serverTimestamp()
+        });
+        await loadStudents();
+        renderDashboard();
+        renderResultsWorkspace();
+        showToast("Semester result removed.");
+      } catch (error) {
+        console.error("Result delete error:", error);
+        showToast(readableDatabaseError(error));
+      }
+    });
+  });
+}
+
+/* Subjects */
+function renderSubjectCards() {
+  const subjects = getAssignedSubjects();
+
+  $("subjectCards").innerHTML = subjects.map(subject => {
+    const count = students.filter(student =>
+      Array.isArray(student.subjects) && student.subjects.includes(subject)
+    ).length;
+
+    return `
+      <button class="subject-card" data-subject-card="${subject}">
+        <span class="subject-letter">${subject.slice(0, 2)}</span>
+        <h3>${subject}</h3>
+        <p>${escapeHTML(SUBJECT_INFO[subject])}</p>
+        <small>${count} student${count === 1 ? "" : "s"} · Open workspace →</small>
+      </button>
+    `;
+  }).join("");
+
+  document.querySelectorAll("[data-subject-card]").forEach(button => {
+    button.addEventListener("click", () => openSubject(button.dataset.subjectCard));
+  });
+}
+
+function openSubject(subject) {
+  selectedSubject = subject;
+
+  const subjectStudents = students.filter(student =>
+    Array.isArray(student.subjects) && student.subjects.includes(subject)
+  );
+
+  $("subjectDetail").classList.remove("hidden");
+  $("subjectDetail").innerHTML = `
+    <div class="panel-heading">
+      <div><h3>${escapeHTML(subject)} — ${escapeHTML(SUBJECT_INFO[subject])}</h3>
+      <p>${subjectStudents.length} enrolled student${subjectStudents.length === 1 ? "" : "s"}</p></div>
+      <button class="secondary-button" id="closeSubjectDetail">Close</button>
+    </div>
+    ${subjectStudents.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr><th>STUDENT</th><th>ROLL NUMBER</th><th>ATTENDANCE</th><th>RESULTS</th></tr></thead>
+        <tbody>${subjectStudents.map(student => {
+          const attendance = student.attendance?.[subject] || {};
+          const percentage = Number(attendance.held) > 0
+            ? ((Number(attendance.attended) || 0) / Number(attendance.held) * 100).toFixed(1) + "%"
+            : "—";
+
+          return `<tr>
+            <td>${escapeHTML(student.name)}</td>
+            <td>${escapeHTML(student.rollNo || student.roll || "—")}</td>
+            <td>${percentage}</td>
+            <td>${studentAverageCgpa(student.results || {})?.toFixed(2) || "—"}</td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table></div>
+    ` : `<div class="empty-state">No students are enrolled in this subject yet.</div>`}
+  `;
+
+  $("closeSubjectDetail").addEventListener("click", () => {
+    $("subjectDetail").classList.add("hidden");
+  });
+
+  $("subjectDetail").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* Settings */
+function renderSettingsSubjects() {
+  const selected = getAssignedSubjects();
+
+  $("settingsSubjects").innerHTML = SUBJECTS.map(subject => `
+    <label><input type="checkbox" value="${subject}" ${selected.includes(subject) ? "checked" : ""}> ${subject}</label>
+  `).join("");
+}
+
+$("saveProfileButton").addEventListener("click", async () => {
+  const name = $("settingsName").value.trim();
+
+  if (!name) {
+    setMessage($("settingsMessage"), "Name cannot be empty.");
+    return;
+  }
+
+  try {
+    await updateDoc(getTeacherRef(), { name });
+    await updateProfile(currentUser, { displayName: name });
+
+    currentProfile.name = name;
+    renderProfile();
+    setMessage($("settingsMessage"), "Account information updated.", true);
+    showToast("Profile updated.");
+  } catch (error) {
+    console.error("Profile update error:", error);
+    setMessage($("settingsMessage"), readableDatabaseError(error));
+  }
+});
+
+$("saveSubjectsButton").addEventListener("click", async () => {
+  const subjects = selectedCheckboxValues($("settingsSubjects"));
+
+  if (!subjects.length) {
+    showToast("Select at least one subject.");
+    return;
+  }
+
+  try {
+    await updateDoc(getTeacherRef(), { subjects });
+    currentProfile.subjects = subjects;
+
+    renderAll();
+    showToast("Subject preferences saved.");
+  } catch (error) {
+    console.error("Subject update error:", error);
+    showToast(readableDatabaseError(error));
+  }
+});
+
+/* Keep the initial login view ready */
+setAuthMode("login");
