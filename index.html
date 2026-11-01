@@ -4,817 +4,373 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#7654d6">
-  <title>StudentHub | Teacher Dashboard</title>
+  <meta name="theme-color" content="#7655dc">
+  <title>StudentHub | Teacher Workspace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <!-- ================= AUTHENTICATION ================= -->
+  <!-- AUTHENTICATION -->
   <main id="authPage" class="auth-page">
-    <div class="auth-decoration auth-decoration-one"></div>
-    <div class="auth-decoration auth-decoration-two"></div>
-
-    <section class="auth-container">
-
+    <section class="auth-visual">
       <div class="auth-brand">
-        <div class="brand-logo">S</div>
-        <span>Student<span class="brand-highlight">Hub</span></span>
+        <div class="brand-mark">S</div>
+        <span>Student<span>Hub</span></span>
       </div>
 
-      <div class="auth-card">
+      <div class="auth-hero">
+        <span class="eyebrow">YOUR ACADEMIC COMMAND CENTER</span>
+        <h1>Teaching made<br><span>simpler.</span></h1>
+        <p>One organized workspace to manage students, track progress and make every academic day count.</p>
+        <div class="auth-feature-list">
+          <div><span>✓</span> Student records in one place</div>
+          <div><span>✓</span> Attendance and academic tracking</div>
+          <div><span>✓</span> Subject-wise performance insights</div>
+        </div>
+      </div>
+
+      <div class="auth-visual-footer">A smarter way to manage your classroom.</div>
+      <div class="auth-decoration decoration-one"></div>
+      <div class="auth-decoration decoration-two"></div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-panel-inner">
 
         <!-- LOGIN -->
         <div id="loginView">
           <div class="auth-heading">
-            <span class="eyebrow">TEACHER PORTAL</span>
-            <h1>Welcome back!</h1>
-            <p>Sign in to manage your students and academic records.</p>
+            <span class="eyebrow">WELCOME BACK</span>
+            <h2>Sign in to StudentHub</h2>
+            <p>Enter your teacher account details to continue.</p>
           </div>
 
           <form id="loginForm">
-            <div class="form-group">
-              <label for="loginEmail">Email address</label>
-              <input
-                type="email"
-                id="loginEmail"
-                placeholder="Enter your email"
-                autocomplete="email"
-                required
-              >
-            </div>
+            <label for="loginEmail">Email address</label>
+            <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" required>
 
-            <div class="form-group">
+            <div class="field-heading">
               <label for="loginPassword">Password</label>
-              <div class="password-wrapper">
-                <input
-                  type="password"
-                  id="loginPassword"
-                  placeholder="Enter your password"
-                  autocomplete="current-password"
-                  required
-                >
-                <button type="button" class="password-toggle" data-toggle="loginPassword">Show</button>
-              </div>
+              <button type="button" class="text-button" id="forgotPassword">Forgot password?</button>
+            </div>
+            <div class="password-wrap">
+              <input id="loginPassword" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+              <button type="button" class="password-toggle" data-toggle="loginPassword">Show</button>
             </div>
 
-            <div class="auth-options">
-              <label class="checkbox-line">
-                <input type="checkbox" id="rememberEmail">
-                <span>Remember email</span>
-              </label>
-              <button type="button" id="forgotPassword" class="text-button">Forgot password?</button>
-            </div>
+            <label class="check-line">
+              <input id="rememberEmail" type="checkbox">
+              <span>Remember my email</span>
+            </label>
 
-            <p id="loginError" class="message" role="alert"></p>
-
-            <button type="submit" class="primary-button auth-submit">
-              Sign In <span>→</span>
-            </button>
+            <p id="loginError" class="form-message" aria-live="polite"></p>
+            <button type="submit" class="primary-button full-button">Sign In <span>→</span></button>
           </form>
 
           <div class="auth-switch">
-            Don't have an account?
-            <button type="button" id="showRegister" class="text-button">Create account</button>
+            Don't have an account? <button type="button" id="showRegister">Create account</button>
           </div>
         </div>
 
-        <!-- TEACHER REGISTRATION -->
+        <!-- REGISTER -->
         <div id="registerView" class="hidden">
           <div class="auth-heading">
             <span class="eyebrow">GET STARTED</span>
-            <h1>Create your account</h1>
-            <p>Register as a teacher and choose the subjects you manage.</p>
+            <h2>Create your account</h2>
+            <p>Set up your teacher workspace in a few steps.</p>
           </div>
 
           <form id="registerForm">
-            <div class="form-group">
-              <label for="registerName">Teacher name</label>
-              <input
-                type="text"
-                id="registerName"
-                placeholder="Enter your full name"
-                autocomplete="name"
-                required
-              >
+            <label for="registerName">Teacher name</label>
+            <input id="registerName" type="text" placeholder="Enter your full name" autocomplete="name" required>
+
+            <label for="registerEmail">Email address</label>
+            <input id="registerEmail" type="email" placeholder="you@example.com" autocomplete="email" required>
+
+            <label for="registerPassword">Create password</label>
+            <div class="password-wrap">
+              <input id="registerPassword" type="password" placeholder="At least 6 characters" minlength="6" autocomplete="new-password" required>
+              <button type="button" class="password-toggle" data-toggle="registerPassword">Show</button>
             </div>
 
-            <div class="form-group">
-              <label for="registerEmail">Email address</label>
-              <input
-                type="email"
-                id="registerEmail"
-                placeholder="Enter your email"
-                autocomplete="email"
-                required
-              >
-            </div>
-
-            <div class="form-group">
-              <label for="registerPassword">Create password</label>
-              <div class="password-wrapper">
-                <input
-                  type="password"
-                  id="registerPassword"
-                  placeholder="Minimum 8 characters"
-                  minlength="8"
-                  autocomplete="new-password"
-                  required
-                >
-                <button type="button" class="password-toggle" data-toggle="registerPassword">Show</button>
+            <div class="subject-selection">
+              <div class="field-heading">
+                <label>Select your subjects</label>
+                <span class="small-hint">Choose one or more</span>
+              </div>
+              <div id="registerSubjectPicker" class="subject-picker">
+                <label class="subject-choice"><input type="checkbox" name="registerSubject" value="DS"><span>DS</span></label>
+                <label class="subject-choice"><input type="checkbox" name="registerSubject" value="DBMS"><span>DBMS</span></label>
+                <label class="subject-choice"><input type="checkbox" name="registerSubject" value="MFCS"><span>MFCS</span></label>
+                <label class="subject-choice"><input type="checkbox" name="registerSubject" value="FOIS"><span>FOIS</span></label>
+                <label class="subject-choice"><input type="checkbox" name="registerSubject" value="CN"><span>CN</span></label>
+                <label class="subject-choice"><input type="checkbox" name="registerSubject" value="OOPS"><span>OOPS</span></label>
               </div>
             </div>
 
-            <div class="form-group">
-              <label>Select your subjects</label>
-              <p class="field-hint">Choose at least one subject to continue.</p>
-
-              <div class="subject-checkbox-grid">
-                <label><input type="checkbox" name="subjects" value="DS"><span>DS</span></label>
-                <label><input type="checkbox" name="subjects" value="DBMS"><span>DBMS</span></label>
-                <label><input type="checkbox" name="subjects" value="MFCS"><span>MFCS</span></label>
-                <label><input type="checkbox" name="subjects" value="FOIS"><span>FOIS</span></label>
-                <label><input type="checkbox" name="subjects" value="CN"><span>CN</span></label>
-                <label><input type="checkbox" name="subjects" value="OOPS"><span>OOPS</span></label>
-              </div>
-            </div>
-
-            <p id="registerError" class="message" role="alert"></p>
-
-            <button type="submit" class="primary-button auth-submit">
-              Create Teacher Account <span>→</span>
-            </button>
+            <p id="registerError" class="form-message" aria-live="polite"></p>
+            <button type="submit" class="primary-button full-button">Create Teacher Account <span>→</span></button>
           </form>
 
           <div class="auth-switch">
-            Already registered?
-            <button type="button" id="showLogin" class="text-button">Sign in</button>
+            Already registered? <button type="button" id="showLogin">Sign in</button>
           </div>
         </div>
-
       </div>
-
-      <p class="auth-footer">StudentHub · Academic Management System</p>
+      <div class="auth-copyright">© 2026 StudentHub. Your classroom, organized.</div>
     </section>
   </main>
 
+  <!-- MAIN APPLICATION -->
+  <div id="app" class="app-shell hidden">
 
-  <!-- ================= MAIN APPLICATION ================= -->
-  <div id="app" class="app-layout hidden">
-
-    <!-- SIDEBAR -->
     <aside id="sidebar" class="sidebar">
-
       <div class="sidebar-brand">
-        <div class="brand-logo">S</div>
-        <div class="brand-name">Student<span>Hub</span></div>
+        <div class="brand-mark">S</div>
+        <span>Student<span>Hub</span></span>
+        <button id="menuToggle" class="mobile-close" type="button" aria-label="Close menu">×</button>
       </div>
 
       <div class="sidebar-profile">
-        <div class="profile-avatar" id="sidebarInitials">T</div>
-        <div class="profile-details">
+        <div id="sidebarInitials" class="avatar">T</div>
+        <div class="profile-info">
           <strong id="sidebarName">Teacher</strong>
           <span id="sidebarEmail">teacher@email.com</span>
         </div>
       </div>
 
-      <div class="sidebar-label">MAIN MENU</div>
-
-      <nav class="sidebar-navigation">
-        <button class="nav-link active" data-page="dashboard">
-          <span class="nav-icon">⌂</span>
-          <span>Overview</span>
-        </button>
-
-        <button class="nav-link" data-page="students">
-          <span class="nav-icon">♙</span>
-          <span>Students</span>
-        </button>
-
-        <button class="nav-link" data-page="add">
-          <span class="nav-icon">＋</span>
-          <span>Add Student</span>
-        </button>
-
-        <button class="nav-link" data-page="attendance">
-          <span class="nav-icon">▣</span>
-          <span>Attendance</span>
-        </button>
-
-        <button class="nav-link" data-page="academic">
-          <span class="nav-icon">▤</span>
-          <span>Academic Results</span>
-        </button>
+      <div class="nav-label">WORKSPACE</div>
+      <nav class="main-navigation">
+        <button class="nav-item active" data-page="dashboard" type="button"><span class="nav-icon">▦</span> Overview</button>
+        <button class="nav-item" data-page="students" type="button"><span class="nav-icon">♙</span> Students</button>
+        <button class="nav-item" data-page="attendance" type="button"><span class="nav-icon">◷</span> Attendance</button>
+        <button class="nav-item" data-page="academics" type="button"><span class="nav-icon">▤</span> Academic Results</button>
       </nav>
 
-      <div class="sidebar-label subject-label">YOUR SUBJECTS</div>
-      <nav id="subjectNavigation" class="sidebar-navigation subject-navigation"></nav>
+      <div class="nav-label subject-nav-label">MY SUBJECTS</div>
+      <nav id="subjectNavigation" class="subject-navigation"></nav>
 
       <div class="sidebar-bottom">
-        <button class="nav-link" data-page="settings">
-          <span class="nav-icon">⚙</span>
-          <span>Account Settings</span>
-        </button>
-
-        <button id="logoutButton" class="nav-link logout-link" type="button">
-          <span class="nav-icon">↪</span>
-          <span>Sign Out</span>
-        </button>
+        <button class="nav-item" data-page="settings" type="button"><span class="nav-icon">⚙</span> Settings</button>
+        <button id="logoutButton" class="nav-item logout-nav" type="button"><span class="nav-icon">↪</span> Sign Out</button>
+        <div class="sidebar-footer">StudentHub <span>•</span> Teacher Workspace</div>
       </div>
     </aside>
 
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
-    <!-- MAIN CONTENT -->
-    <main class="main-content">
-
-      <!-- TOPBAR -->
+    <main class="main-area">
       <header class="topbar">
         <div class="topbar-left">
-          <button id="menuToggle" class="menu-toggle" type="button" aria-label="Toggle menu">☰</button>
+          <button id="mobileMenuButton" class="mobile-menu-button" type="button" aria-label="Open menu">☰</button>
           <div>
-            <span class="topbar-caption">STUDENT MANAGEMENT</span>
-            <h2 id="topbarTitle">Overview</h2>
+            <div class="breadcrumb">Workspace <span>/</span> <strong id="topbarTitle">Overview</strong></div>
+            <div class="topbar-date" id="todayLabel">Your academic workspace</div>
           </div>
         </div>
-
-        <div class="topbar-right">
-          <span id="todayLabel" class="today-label"></span>
-
-          <button id="themeToggle" class="theme-button" type="button">
-            <span id="themeIcon">☾</span>
-            <span id="themeText">Black Mode</span>
+        <div class="topbar-actions">
+          <button id="themeToggle" class="theme-toggle" type="button">
+            <span id="themeIcon">☾</span><span id="themeText">Black Mode</span>
           </button>
-
-          <button id="topLogoutButton" class="top-logout-button" type="button">
-            ↪ Sign Out
-          </button>
-
-          <div class="top-avatar" id="topInitials">T</div>
+          <div id="topInitials" class="avatar top-avatar">T</div>
+          <button id="topLogoutButton" class="top-logout" type="button">Sign Out</button>
         </div>
       </header>
 
+      <div class="content-area">
 
-      <!-- PAGE CONTENT -->
-      <div class="content-wrapper">
-
-        <!-- ================= DASHBOARD ================= -->
-        <section id="page-dashboard" class="page-section">
-
+        <!-- DASHBOARD -->
+        <section id="dashboardPage" class="page-section">
           <div class="welcome-section">
             <div>
-              <span class="eyebrow">YOUR WORKSPACE</span>
-              <h1>Welcome back, <span id="welcomeName">Teacher</span>!</h1>
-              <p>Here's an overview of your academic activities.</p>
+              <span class="eyebrow">YOUR CLASSROOM AT A GLANCE</span>
+              <h1>Good to see you, <span id="welcomeName">Teacher</span>!</h1>
+              <p>Here's what's happening in your academic workspace today.</p>
             </div>
-            <div class="welcome-icon">✦</div>
+            <button class="primary-button" data-go="students" type="button">＋ Add Student</button>
           </div>
 
           <div class="stats-grid">
-
             <article class="stat-card">
               <div class="stat-icon purple-icon">♙</div>
-              <span class="stat-label">Total Students</span>
-              <strong id="totalStudents" class="stat-value">0</strong>
-              <span class="stat-description">Registered students</span>
+              <span>Total Students</span>
+              <strong id="totalStudents">0</strong>
+              <small>Registered in your workspace</small>
             </article>
-
             <article class="stat-card">
-              <div class="stat-icon pink-icon">▤</div>
-              <span class="stat-label">Average CGPA</span>
-              <strong id="averageSGPA" class="stat-value">—</strong>
-              <span class="stat-description">Overall academic performance</span>
+              <div class="stat-icon blue-icon">▦</div>
+              <span>My Subjects</span>
+              <strong id="subjectCount">0</strong>
+              <small>Subjects you manage</small>
             </article>
-
             <article class="stat-card">
-              <div class="stat-icon blue-icon">▣</div>
-              <span class="stat-label">Average Attendance</span>
-              <strong id="averageAttendance" class="stat-value">—</strong>
-              <span class="stat-description">Across student records</span>
+              <div class="stat-icon green-icon">◷</div>
+              <span>Average Attendance</span>
+              <strong id="averageAttendance">—</strong>
+              <small>Across your students</small>
             </article>
-
             <article class="stat-card">
-              <div class="stat-icon green-icon">▦</div>
-              <span class="stat-label">Your Subjects</span>
-              <strong id="subjectCount" class="stat-value">0</strong>
-              <span class="stat-description">Subjects you manage</span>
+              <div class="stat-icon orange-icon">★</div>
+              <span>Average SGPA</span>
+              <strong id="averageSGPA">—</strong>
+              <small>Based on recorded results</small>
             </article>
-
           </div>
 
           <div class="dashboard-grid">
-
-            <article class="panel recent-panel">
-              <div class="panel-heading">
-                <div>
-                  <h3>Recent Students</h3>
-                  <p>Your latest student records</p>
-                </div>
-                <button class="secondary-button" data-go="students" type="button">View All →</button>
+            <section class="content-card dashboard-subject-card">
+              <div class="section-heading">
+                <div><h2>My Subjects</h2><p>Quick access to your subject workspaces</p></div>
+                <span class="subtle-label">SUBJECTS</span>
               </div>
+              <div id="dashboardSubjects" class="dashboard-subjects"></div>
+            </section>
 
-              <div id="recentStudents" class="recent-students">
-                <p>No students added yet.</p>
+            <section class="content-card quick-actions-card">
+              <div class="section-heading">
+                <div><h2>Quick Actions</h2><p>Jump into your daily tasks</p></div>
               </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-heading">
-                <div>
-                  <h3>Quick Actions</h3>
-                  <p>Manage your classroom</p>
-                </div>
-              </div>
-
               <div class="quick-actions">
-                <button class="quick-action" data-go="add" type="button">
-                  <span>＋</span>
-                  <strong>Add Student</strong>
-                  <small>Create a student record</small>
-                </button>
-
-                <button class="quick-action" data-go="attendance" type="button">
-                  <span>▣</span>
-                  <strong>Update Attendance</strong>
-                  <small>Record class attendance</small>
-                </button>
-
-                <button class="quick-action" data-go="academic" type="button">
-                  <span>▤</span>
-                  <strong>Academic Results</strong>
-                  <small>Manage semester results</small>
-                </button>
+                <button data-go="students" type="button"><span class="action-icon">＋</span><span><strong>Manage Students</strong><small>Add or update student records</small></span><b>→</b></button>
+                <button data-go="attendance" type="button"><span class="action-icon">◷</span><span><strong>Record Attendance</strong><small>Update attendance details</small></span><b>→</b></button>
+                <button data-go="academics" type="button"><span class="action-icon">▤</span><span><strong>Update Results</strong><small>Manage semester performance</small></span><b>→</b></button>
               </div>
-            </article>
-
+            </section>
           </div>
 
-          <article class="panel dashboard-subject-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Your Subjects</h3>
-                <p>Choose a subject to view its students and records.</p>
-              </div>
+          <section class="content-card recent-card">
+            <div class="section-heading">
+              <div><h2>Recently Added Students</h2><p>Your latest student records</p></div>
+              <button class="text-button" data-go="students" type="button">View all students →</button>
             </div>
-            <div id="dashboardSubjects" class="subject-card-grid"></div>
-          </article>
-
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Student</th><th>Register Number</th><th>Year</th><th>Subjects</th></tr></thead>
+                <tbody id="recentStudents"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
-
-        <!-- ================= STUDENTS ================= -->
-        <section id="page-students" class="page-section hidden">
-
+        <!-- STUDENTS -->
+        <section id="studentsPage" class="page-section hidden">
           <div class="page-heading">
-            <div>
-              <span class="eyebrow">STUDENT MANAGEMENT</span>
-              <h1>Student Directory</h1>
-              <p>View, search, edit and manage your student records.</p>
-            </div>
-
-            <button class="primary-button" data-go="add" type="button">
-              ＋ Add Student
-            </button>
+            <div><span class="eyebrow">STUDENT DIRECTORY</span><h1>Student Management</h1><p>Keep all your student records organized.</p></div>
           </div>
 
-          <article class="panel">
-            <div class="table-toolbar">
-              <div>
-                <h3>All Students</h3>
-                <span id="recordCount" class="record-count">0 records</span>
-              </div>
+          <div class="content-card form-card">
+            <div class="section-heading"><div><h2>Add a Student</h2><p>Enter the student's details below.</p></div></div>
+            <form id="addStudentForm" class="form-grid">
+              <div class="form-field"><label for="addName">Student Name</label><input id="addName" type="text" placeholder="Full name" required></div>
+              <div class="form-field"><label for="addReg">Register Number</label><input id="addReg" type="text" placeholder="Register number" required></div>
+              <div class="form-field"><label for="addStudentEmail">Email (optional)</label><input id="addStudentEmail" type="email" placeholder="student@example.com"></div>
+              <div class="form-field"><label for="addYear">Academic Year</label><select id="addYear"><option value="">Select year</option><option value="1st Year">1st Year</option><option value="2nd Year">2nd Year</option><option value="3rd Year">3rd Year</option><option value="4th Year">4th Year</option></select></div>
+              <div class="form-field full-width"><label>Select Subjects</label><div id="studentSubjectPicker" class="subject-picker"></div></div>
+              <div class="form-actions full-width"><p id="addMessage" class="form-message"></p><button id="clearStudentButton" type="reset" class="secondary-button">Clear</button><button type="submit" class="primary-button">Save Student</button></div>
+            </form>
+          </div>
 
-              <input
-                type="search"
-                id="tableSearch"
-                class="search-input"
-                placeholder="Search by name or registration number..."
-              >
+          <section class="content-card">
+            <div class="section-heading list-heading">
+              <div><h2>All Students</h2><p id="recordCount">0 records</p></div>
+              <input id="tableSearch" class="search-input" type="search" placeholder="Search students...">
             </div>
-
-            <div class="table-responsive">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Registration No.</th>
-                    <th>Student Name</th>
-                    <th>CGPA</th>
-                    <th>Attendance</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Student</th><th>Register Number</th><th>Email</th><th>Year</th><th>Subjects</th><th>Actions</th></tr></thead>
                 <tbody id="studentTableBody"></tbody>
               </table>
             </div>
-
-            <div id="emptyStudents" class="empty-state hidden">
-              <div class="empty-icon">♙</div>
-              <h3>No students found</h3>
-              <p>Add your first student to get started.</p>
-              <button class="primary-button" data-go="add" type="button">Add Student</button>
-            </div>
-          </article>
-
+            <div id="emptyStudents" class="empty-state hidden"><div>♙</div><h3>No students yet</h3><p>Add your first student using the form above.</p></div>
+          </section>
         </section>
 
-
-        <!-- ================= ADD / EDIT STUDENT ================= -->
-        <section id="page-add" class="page-section hidden">
-
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">STUDENT RECORDS</span>
-              <h1 id="addPageTitle">Add Student</h1>
-              <p>Enter student information and assign subjects.</p>
-            </div>
-            <button class="secondary-button" data-go="students" type="button">← Back to Students</button>
-          </div>
-
-          <article class="panel form-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Student Information</h3>
-                <p>Fill in the details below.</p>
-              </div>
-            </div>
-
-            <form id="addStudentForm">
-
-              <div class="form-grid">
-
-                <div class="form-group">
-                  <label for="addReg">Registration Number *</label>
-                  <input type="text" id="addReg" placeholder="e.g. 251FA19022" required>
-                </div>
-
-                <div class="form-group">
-                  <label for="addName">Student Name *</label>
-                  <input type="text" id="addName" placeholder="Enter student name" required>
-                </div>
-
-                <div class="form-group">
-                  <label for="addStudentEmail">Email Address</label>
-                  <input type="email" id="addStudentEmail" placeholder="student@email.com">
-                </div>
-
-                <div class="form-group">
-                  <label for="addYear">Academic Year</label>
-                  <select id="addYear">
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                  </select>
-                </div>
-
-              </div>
-
-              <div class="form-group subject-form-group">
-                <label>Assign Subjects *</label>
-                <p class="field-hint">Choose the subjects this student is enrolled in.</p>
-                <div id="studentSubjectPicker" class="subject-checkbox-grid"></div>
-              </div>
-
-              <p id="addMessage" class="message" role="status"></p>
-
-              <div class="form-actions">
-                <button type="submit" class="primary-button">Save Student</button>
-                <button type="reset" id="clearStudentButton" class="secondary-button">Clear Form</button>
-                <button type="button" class="secondary-button" data-go="students">Cancel</button>
-              </div>
-
+        <!-- ATTENDANCE -->
+        <section id="attendancePage" class="page-section hidden">
+          <div class="page-heading"><div><span class="eyebrow">CLASSROOM TRACKER</span><h1>Attendance Management</h1><p>Record and monitor student attendance.</p></div></div>
+          <section class="content-card form-card">
+            <div class="section-heading"><div><h2>Record Attendance</h2><p>Enter classes held and attended for a student.</p></div></div>
+            <form id="attendanceForm" class="form-grid">
+              <div class="form-field"><label for="attendanceStudent">Student</label><select id="attendanceStudent" required><option value="">Select student</option></select></div>
+              <div class="form-field"><label for="attendanceSubject">Subject</label><select id="attendanceSubject" required><option value="">Select subject</option></select></div>
+              <div class="form-field"><label for="classesHeld">Classes Held</label><input id="classesHeld" type="number" min="0" placeholder="e.g. 30" required></div>
+              <div class="form-field"><label for="classesAttended">Classes Attended</label><input id="classesAttended" type="number" min="0" placeholder="e.g. 27" required></div>
+              <div class="form-actions full-width"><p id="attendanceMessage" class="form-message"></p><button type="submit" class="primary-button">Save Attendance</button></div>
             </form>
-          </article>
-
+          </section>
+          <section class="content-card">
+            <div class="section-heading"><div><h2>Attendance Records</h2><p>Current attendance information</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Student</th><th>Subject</th><th>Classes Held</th><th>Attended</th><th>Percentage</th></tr></thead><tbody id="attendanceTableBody"></tbody></table></div>
+          </section>
         </section>
 
-
-        <!-- ================= ATTENDANCE ================= -->
-        <section id="page-attendance" class="page-section hidden">
-
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">CLASSROOM TRACKING</span>
-              <h1>Attendance Management</h1>
-              <p>Record and monitor student attendance by subject.</p>
-            </div>
-          </div>
-
-          <article class="panel form-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Record Attendance</h3>
-                <p>Enter the number of classes held and attended.</p>
-              </div>
-            </div>
-
-            <form id="attendanceForm">
-
-              <div class="form-grid">
-
-                <div class="form-group">
-                  <label for="attendanceStudent">Select Student</label>
-                  <select id="attendanceStudent" required>
-                    <option value="">Select student</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label for="attendanceSubject">Select Subject</label>
-                  <select id="attendanceSubject" required>
-                    <option value="">Select subject</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label for="classesHeld">Classes Held</label>
-                  <input type="number" id="classesHeld" min="1" placeholder="e.g. 20" required>
-                </div>
-
-                <div class="form-group">
-                  <label for="classesAttended">Classes Attended</label>
-                  <input type="number" id="classesAttended" min="0" placeholder="e.g. 18" required>
-                </div>
-
-              </div>
-
-              <p id="attendanceMessage" class="message" role="status"></p>
-
-              <button type="submit" class="primary-button">Save Attendance</button>
+        <!-- ACADEMICS -->
+        <section id="academicsPage" class="page-section hidden">
+          <div class="page-heading"><div><span class="eyebrow">PERFORMANCE CENTER</span><h1>Academic Results</h1><p>Record semester results and track academic performance.</p></div></div>
+          <section class="content-card form-card">
+            <div class="section-heading"><div><h2>Add Academic Result</h2><p>Save a student's semester SGPA.</p></div></div>
+            <form id="resultForm" class="form-grid">
+              <div class="form-field"><label for="resultStudent">Student</label><select id="resultStudent" required><option value="">Select student</option></select></div>
+              <div class="form-field"><label for="resultSemester">Semester</label><select id="resultSemester" required><option value="">Select semester</option><option value="Semester 1">Semester 1</option><option value="Semester 2">Semester 2</option><option value="Semester 3">Semester 3</option><option value="Semester 4">Semester 4</option><option value="Semester 5">Semester 5</option><option value="Semester 6">Semester 6</option><option value="Semester 7">Semester 7</option><option value="Semester 8">Semester 8</option></select></div>
+              <div class="form-field"><label for="resultSGPA">SGPA</label><input id="resultSGPA" type="number" min="0" max="10" step="0.01" placeholder="e.g. 8.75" required></div>
+              <div class="form-actions full-width"><p id="resultMessage" class="form-message"></p><button type="submit" class="primary-button">Save Result</button></div>
             </form>
-          </article>
-
-          <article class="panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Attendance Records</h3>
-                <p>Attendance details for enrolled subjects.</p>
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>Subject</th>
-                    <th>Attended</th>
-                    <th>Classes Held</th>
-                    <th>Percentage</th>
-                  </tr>
-                </thead>
-                <tbody id="attendanceTableBody"></tbody>
-              </table>
-            </div>
-          </article>
-
+          </section>
+          <section class="content-card">
+            <div class="section-heading list-heading"><div><h2>Academic Records</h2><p>Semester-wise student performance</p></div><select id="academicFilter" class="filter-select"><option value="all">All Semesters</option><option value="Semester 1">Semester 1</option><option value="Semester 2">Semester 2</option><option value="Semester 3">Semester 3</option><option value="Semester 4">Semester 4</option><option value="Semester 5">Semester 5</option><option value="Semester 6">Semester 6</option><option value="Semester 7">Semester 7</option><option value="Semester 8">Semester 8</option></select></div>
+            <div class="table-wrap"><table><thead><tr><th>Student</th><th>Register Number</th><th>Semester</th><th>SGPA</th></tr></thead><tbody id="academicTableBody"></tbody></table></div>
+          </section>
         </section>
 
-
-        <!-- ================= ACADEMIC RESULTS ================= -->
-        <section id="page-academic" class="page-section hidden">
-
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">ACADEMIC PERFORMANCE</span>
-              <h1>Academic Results</h1>
-              <p>Maintain semester-wise SGPA and overall CGPA records.</p>
-            </div>
-          </div>
-
-          <article class="panel form-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Update Semester Result</h3>
-                <p>Enter a student's SGPA for a semester.</p>
-              </div>
-            </div>
-
-            <form id="resultForm">
-
-              <div class="form-grid">
-
-                <div class="form-group">
-                  <label for="resultStudent">Select Student</label>
-                  <select id="resultStudent" required>
-                    <option value="">Select student</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label for="resultSemester">Semester</label>
-                  <select id="resultSemester" required>
-                    <option value="1">Semester 1</option>
-                    <option value="2">Semester 2</option>
-                    <option value="3">Semester 3</option>
-                    <option value="4">Semester 4</option>
-                    <option value="5">Semester 5</option>
-                    <option value="6">Semester 6</option>
-                    <option value="7">Semester 7</option>
-                    <option value="8">Semester 8</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label for="resultSGPA">SGPA (0–10)</label>
-                  <input type="number" id="resultSGPA" min="0" max="10" step="0.01" placeholder="e.g. 8.75" required>
-                </div>
-
-              </div>
-
-              <p id="resultMessage" class="message" role="status"></p>
-
-              <button type="submit" class="primary-button">Save Result</button>
-            </form>
-          </article>
-
-          <article class="panel">
-            <div class="table-toolbar">
-              <div>
-                <h3>Student Performance</h3>
-                <p>Semester-wise academic records.</p>
-              </div>
-
-              <select id="academicFilter" class="filter-select">
-                <option value="">All Students</option>
-              </select>
-            </div>
-
-            <div class="table-responsive">
-              <table class="data-table academic-table">
-                <thead>
-                  <tr>
-                    <th>Registration No.</th>
-                    <th>Student Name</th>
-                    <th>Semester Results (S1–S8)</th>
-                    <th>Year 1 CGPA</th>
-                    <th>Year 2 CGPA</th>
-                    <th>Overall CGPA</th>
-                  </tr>
-                </thead>
-                <tbody id="academicTableBody"></tbody>
-              </table>
-            </div>
-          </article>
-
-        </section>
-
-
-        <!-- ================= SUBJECT WORKSPACE ================= -->
-        <section id="page-subject" class="page-section hidden">
-
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">SUBJECT WORKSPACE</span>
-              <h1 id="subjectPageTitle">Subject</h1>
-              <p id="subjectPageDescription">Student records for this subject.</p>
-            </div>
-            <button class="secondary-button" data-go="dashboard" type="button">← Dashboard</button>
-          </div>
-
+        <!-- SUBJECT WORKSPACE -->
+        <section id="subjectPage" class="page-section hidden">
+          <div class="page-heading"><div><span class="eyebrow">SUBJECT WORKSPACE</span><h1 id="subjectPageTitle">Subject</h1><p id="subjectPageDescription">Manage your subject records.</p></div></div>
           <div class="stats-grid subject-stats">
-
-            <article class="stat-card">
-              <span class="stat-label">Enrolled Students</span>
-              <strong id="subjectStudents" class="stat-value">0</strong>
-            </article>
-
-            <article class="stat-card">
-              <span class="stat-label">Average Attendance</span>
-              <strong id="subjectAttendance" class="stat-value">—</strong>
-            </article>
-
-            <article class="stat-card">
-              <span class="stat-label">Average Marks</span>
-              <strong id="subjectMarks" class="stat-value">—</strong>
-            </article>
-
+            <article class="stat-card"><span>Enrolled Students</span><strong id="subjectStudents">0</strong></article>
+            <article class="stat-card"><span>Average Attendance</span><strong id="subjectAttendance">—</strong></article>
+            <article class="stat-card"><span>Average SGPA</span><strong id="subjectMarks">—</strong></article>
           </div>
-
-          <article class="panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Subject Student Records</h3>
-                <p>Students enrolled in this subject.</p>
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Registration No.</th>
-                    <th>Student Name</th>
-                    <th>Attendance</th>
-                    <th>Marks</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="subjectTableBody"></tbody>
-              </table>
-            </div>
-
-            <div id="subjectEmpty" class="empty-state hidden">
-              <div class="empty-icon">▦</div>
-              <h3>No students enrolled</h3>
-              <p>There are currently no student records for this subject.</p>
-            </div>
-          </article>
-
+          <section class="content-card">
+            <div class="section-heading"><div><h2>Subject Students</h2><p>Students assigned to this subject</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Student</th><th>Register Number</th><th>Year</th><th>Attendance</th></tr></thead><tbody id="subjectTableBody"></tbody></table></div>
+            <div id="subjectEmpty" class="empty-state hidden"><h3>No students assigned</h3><p>Assign students to this subject from Student Management.</p></div>
+          </section>
         </section>
 
-
-        <!-- ================= SETTINGS ================= -->
-        <section id="page-settings" class="page-section hidden">
-
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">PREFERENCES</span>
-              <h1>Account Settings</h1>
-              <p>Manage your teacher profile and subject preferences.</p>
-            </div>
-          </div>
-
-          <article class="panel settings-profile-panel">
+        <!-- SETTINGS -->
+        <section id="settingsPage" class="page-section hidden">
+          <div class="page-heading"><div><span class="eyebrow">YOUR ACCOUNT</span><h1>Settings</h1><p>Manage your teacher profile and preferences.</p></div></div>
+          <section class="content-card settings-profile-card">
             <div class="settings-profile">
-              <div class="settings-avatar" id="settingsInitials">T</div>
-              <div>
-                <h3 id="settingsName">Teacher</h3>
-                <p id="settingsEmail">teacher@email.com</p>
-              </div>
+              <div id="settingsInitials" class="avatar settings-avatar">T</div>
+              <div><h2 id="settingsName">Teacher</h2><p id="settingsEmail">teacher@email.com</p></div>
             </div>
-          </article>
-
-          <article class="panel form-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Profile Information</h3>
-                <p>Update your name and teaching subjects.</p>
-              </div>
-            </div>
-
-            <form id="settingsForm">
-
-              <div class="form-group">
-                <label for="settingsNameInput">Teacher Name</label>
-                <input type="text" id="settingsNameInput" placeholder="Enter your name" required>
-              </div>
-
-              <div class="form-group">
-                <label>Email Address</label>
-                <p id="settingsEmailDisplay" class="settings-email-display">Your registered email address</p>
-              </div>
-
-              <div class="form-group">
-                <label>Teaching Subjects</label>
-                <p class="field-hint">Select the subjects assigned to your account.</p>
-                <div id="settingsSubjectPicker" class="subject-checkbox-grid"></div>
-              </div>
-
-              <p id="settingsMessage" class="message" role="status"></p>
-
-              <button type="submit" class="primary-button">Save Changes</button>
+          </section>
+          <section class="content-card form-card">
+            <div class="section-heading"><div><h2>Profile Information</h2><p>Update your teacher details and subjects.</p></div></div>
+            <form id="settingsForm" class="form-grid">
+              <div class="form-field"><label for="settingsNameInput">Teacher Name</label><input id="settingsNameInput" type="text" required></div>
+              <div class="form-field"><label>Email Address</label><input id="settingsEmailDisplay" type="email" disabled></div>
+              <div class="form-field full-width"><label>Your Subjects</label><div id="settingsSubjectPicker" class="subject-picker"></div></div>
+              <div class="form-actions full-width"><p id="settingsMessage" class="form-message"></p><button type="submit" class="primary-button">Save Changes</button></div>
             </form>
-          </article>
-
-          <article class="panel security-panel">
-            <div>
-              <h3>Account Security</h3>
-              <p>Send a password reset link to your registered email.</p>
-            </div>
-            <button type="button" id="settingsResetPassword" class="secondary-button">Reset Password</button>
-          </article>
-
-          <article class="panel security-panel">
-            <div>
-              <h3>Sign Out</h3>
-              <p>Securely sign out of your teacher account.</p>
-            </div>
-            <button type="button" class="top-logout-button" id="settingsLogoutButton">Sign Out</button>
-          </article>
-
+          </section>
+          <section class="content-card settings-security">
+            <div><h2>Account Security</h2><p>Reset your password or sign out of your account.</p><p class="settings-email-line">Signed in as <strong id="footerEmail">teacher@email.com</strong></p></div>
+            <div class="settings-security-actions"><button id="settingsResetPassword" type="button" class="secondary-button">Reset Password</button><button id="settingsLogoutButton" type="button" class="danger-button">Sign Out</button></div>
+          </section>
         </section>
 
       </div>
-
-      <!-- FOOTER -->
-      <footer class="app-footer">
-        <span>© 2026 StudentHub · Academic Management System</span>
-        <span id="footerEmail">Teacher Portal</span>
-      </footer>
-
+      <footer class="main-footer">Made for better learning management. <span>StudentHub © 2026</span></footer>
     </main>
   </div>
 
-
-  <!-- TOAST NOTIFICATION -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- APPLICATION JAVASCRIPT -->
   <script type="module" src="app.js"></script>
-
 </body>
 </html>
