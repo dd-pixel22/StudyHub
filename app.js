@@ -1,4 +1,3 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 
 import {
@@ -22,9 +21,10 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
-// ==========================================
-// FIREBASE CONFIGURATION
-// ==========================================
+
+/* =========================================
+   FIREBASE CONFIGURATION
+========================================= */
 
 const firebaseConfig = {
   apiKey: "AIzaSyDbp7MMX5jgYgM5H2KpUGYryWMuecwaroY",
@@ -39,33 +39,38 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
-// ==========================================
-// CONFIGURATION
-// ==========================================
-
 const SUBJECTS = ["DS", "DBMS", "MFCS", "FOIS", "CN", "OOPS"];
+
+
+/* =========================================
+   APPLICATION STATE
+========================================= */
 
 let currentTeacher = null;
 let teacherProfile = null;
 let students = [];
-let selectedSubject = "DS";
+let selectedSubject = "";
 let editingStudentId = null;
+let registrationInProgress = false;
+let authLoadInProgress = false;
 
 const $ = id => document.getElementById(id);
 
-function clean(value) {
-  return String(value ?? "").trim();
-}
+const clean = value => String(value ?? "").trim();
 
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, char => ({
+const escapeHTML = value =>
+  String(value ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
     '"': "&quot;",
     "'": "&#039;"
-  })[char]);
-}
+  }[c]));
+
+
+/* =========================================
+   COMMON UI FUNCTIONS
+========================================= */
 
 function showToast(message) {
   const toast = $("toast");
@@ -79,69 +84,20 @@ function showToast(message) {
   toast.classList.add("show");
 
   clearTimeout(showToast.timer);
+
   showToast.timer = setTimeout(() => {
     toast.classList.remove("show");
   }, 3000);
 }
 
 function showMessage(id, message, type = "error") {
-  const element = $(id);
-  if (!element) return;
+  const el = $(id);
 
-  element.textContent = message;
-  element.className = "message " + type;
+  if (!el) return;
+
+  el.textContent = message;
+  el.className = "message " + (message ? type : "");
 }
-
-// ==========================================
-// SUBJECT SELECTION - DEFINITIVE FIX
-// ==========================================
-
-function getRegistrationSubjects() {
-
-  // Search directly inside the registration view.
-  // Does not depend on form checkbox names.
-
-  const checkboxes = document.querySelectorAll(
-    '#registerView input[type="checkbox"]'
-  );
-
-  const selected = [];
-
-  checkboxes.forEach(input => {
-    if (input.checked) {
-      const value = clean(input.value).toUpperCase();
-
-      if (SUBJECTS.includes(value)) {
-        selected.push(value);
-      }
-    }
-  });
-
-  return [...new Set(selected)];
-}
-
-function getFormSubjects(formId, allowedSubjects = SUBJECTS) {
-  const form = $(formId);
-  if (!form) return [];
-
-  const selected = [];
-
-  form.querySelectorAll('input[type="checkbox"]').forEach(input => {
-    if (input.checked) {
-      const value = clean(input.value).toUpperCase();
-
-      if (allowedSubjects.includes(value)) {
-        selected.push(value);
-      }
-    }
-  });
-
-  return [...new Set(selected)];
-}
-
-// ==========================================
-// AUTHENTICATION VIEWS
-// ==========================================
 
 function showView(id) {
   $("loginView")?.classList.add("hidden");
@@ -162,21 +118,65 @@ function showApp() {
   $("app")?.classList.remove("hidden");
 }
 
-// ==========================================
-// TEACHER REGISTRATION
-// ==========================================
+function getRegistrationSubjects() {
+  const form = $("registerForm");
+
+  if (!form) return [];
+
+  return [
+    ...new Set(
+      [...form.querySelectorAll('input[name="subjects"]:checked')]
+        .map(input => clean(input.value).toUpperCase())
+        .filter(subject => SUBJECTS.includes(subject))
+    )
+  ];
+}
+
+function getFormSubjects(formId, allowedSubjects = SUBJECTS) {
+  const form = $(formId);
+
+  if (!form) return [];
+
+  return [
+    ...new Set(
+      [...form.querySelectorAll('input[type="checkbox"]:checked')]
+        .map(input => clean(input.value).toUpperCase())
+        .filter(subject => allowedSubjects.includes(subject))
+    )
+  ];
+}
+
+function setBusy(formId, busy, label) {
+  const button = $(formId)?.querySelector('button[type="submit"]');
+
+  if (!button) return;
+
+  button.disabled = busy;
+
+  if (busy) {
+    button.dataset.originalText = button.innerHTML;
+    button.textContent = label;
+  } else if (button.dataset.originalText) {
+    button.innerHTML = button.dataset.originalText;
+    delete button.dataset.originalText;
+  }
+}
+
+
+/* =========================================
+   TEACHER REGISTRATION
+========================================= */
 
 async function registerTeacher(event) {
   event?.preventDefault();
+
+  if (registrationInProgress) return;
 
   const name = clean($("registerName")?.value);
   const email = clean($("registerEmail")?.value).toLowerCase();
   const password = $("registerPassword")?.value || "";
 
-  // Read the actual checkboxes from your supplied HTML.
   const selectedSubjects = getRegistrationSubjects();
-
-  console.log("Selected teacher subjects:", selectedSubjects);
 
   showMessage("registerError", "");
 
@@ -194,24 +194,24 @@ async function registerTeacher(event) {
     );
   }
 
-  if (selectedSubjects.length === 0) {
+  if (!selectedSubjects.length) {
     return showMessage(
       "registerError",
       "Please select at least one subject."
     );
   }
 
-  const submitButton = $("registerForm")?.querySelector(
-    'button[type="submit"]'
-  );
+  registrationInProgress = true;
 
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.textContent = "Creating account...";
-  }
+  setBusy(
+    "registerForm",
+    true,
+    "Creating account..."
+  );
 
   try {
 
+    // Create Firebase Authentication account
     const credential = await createUserWithEmailAndPassword(
       auth,
       email,
@@ -220,6 +220,7 @@ async function registerTeacher(event) {
 
     const user = credential.user;
 
+    // Create teacher profile in Firestore
     const profile = {
       uid: user.uid,
       name: name,
@@ -233,8 +234,6 @@ async function registerTeacher(event) {
       profile
     );
 
-    localStorage.setItem("studenthub_email", email);
-
     teacherProfile = {
       uid: user.uid,
       name,
@@ -244,33 +243,57 @@ async function registerTeacher(event) {
 
     currentTeacher = user;
 
-    showToast("Teacher account created successfully!");
+    localStorage.setItem(
+      "studenthub_email",
+      email
+    );
 
-    await loadDashboardData();
+    // Automatically open dashboard after registration
+    await loadDashboardData(user);
+
+    showToast(
+      "Teacher account created successfully!"
+    );
 
   } catch (error) {
 
     console.error("Registration error:", error);
 
-    showMessage(
-      "registerError",
-      error.code === "auth/email-already-in-use"
-        ? "This email is already registered. Please sign in instead."
-        : error.message
-    );
+    let message = error.message;
+
+    if (error.code === "auth/email-already-in-use") {
+      message = "This email is already registered. Please sign in instead.";
+    }
+
+    if (
+      error.code === "permission-denied" ||
+      error.code === "firestore/permission-denied"
+    ) {
+      message =
+        "Your Firebase account was created, but Firestore did not allow saving the teacher profile. Check Firestore rules before trying again.";
+    }
+
+    showMessage("registerError", message);
+
+    if (auth.currentUser && !teacherProfile) {
+      showLogin();
+    }
 
   } finally {
 
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.innerHTML = 'Create Account <span>→</span>';
-    }
+    registrationInProgress = false;
+
+    setBusy(
+      "registerForm",
+      false
+    );
   }
 }
 
-// ==========================================
-// TEACHER LOGIN
-// ==========================================
+
+/* =========================================
+   TEACHER LOGIN
+========================================= */
 
 async function loginTeacher(event) {
   event?.preventDefault();
@@ -287,17 +310,30 @@ async function loginTeacher(event) {
     );
   }
 
+  setBusy(
+    "loginForm",
+    true,
+    "Signing in..."
+  );
+
   try {
 
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
     if ($("rememberEmail")?.checked) {
-      localStorage.setItem("studenthub_email", email);
+      localStorage.setItem(
+        "studenthub_email",
+        email
+      );
     } else {
-      localStorage.removeItem("studenthub_email");
+      localStorage.removeItem(
+        "studenthub_email"
+      );
     }
-
-    showToast("Login successful!");
 
   } catch (error) {
 
@@ -305,36 +341,86 @@ async function loginTeacher(event) {
 
     showMessage(
       "loginError",
-      "Login failed: " + error.message
+      friendlyAuthError(error)
+    );
+
+  } finally {
+
+    setBusy(
+      "loginForm",
+      false
     );
   }
 }
 
-// ==========================================
-// PASSWORD RESET
-// ==========================================
+
+function friendlyAuthError(error) {
+
+  const map = {
+    "auth/invalid-credential":
+      "Email or password is incorrect.",
+
+    "auth/user-not-found":
+      "No account was found for this email.",
+
+    "auth/wrong-password":
+      "Email or password is incorrect.",
+
+    "auth/too-many-requests":
+      "Too many attempts. Please try again later.",
+
+    "auth/network-request-failed":
+      "Network error. Check your internet connection."
+  };
+
+  return map[error.code] ||
+    error.message ||
+    "Something went wrong.";
+}
+
+
+/* =========================================
+   PASSWORD RESET
+========================================= */
 
 async function resetPassword() {
-  const email = clean($("loginEmail")?.value).toLowerCase();
+
+  const email = clean(
+    $("loginEmail")?.value
+  ).toLowerCase();
 
   if (!email) {
-    return showToast("Enter your email address first.");
+    return showToast(
+      "Enter your email address first."
+    );
   }
 
   try {
-    await sendPasswordResetEmail(auth, email);
-    showToast("Password reset email sent!");
+
+    await sendPasswordResetEmail(
+      auth,
+      email
+    );
+
+    showToast(
+      "Password reset email sent!"
+    );
 
   } catch (error) {
-    showToast(error.message);
+
+    showToast(
+      friendlyAuthError(error)
+    );
   }
 }
 
-// ==========================================
-// LOGOUT
-// ==========================================
+
+/* =========================================
+   TEACHER LOGOUT
+========================================= */
 
 async function logoutTeacher() {
+
   try {
 
     await signOut(auth);
@@ -344,116 +430,169 @@ async function logoutTeacher() {
     students = [];
 
     showLogin();
-    showToast("Logged out successfully!");
+
+    showToast(
+      "Logged out successfully!"
+    );
 
   } catch (error) {
+
     showToast(error.message);
   }
 }
 
-// ==========================================
-// LOAD TEACHER PROFILE
-// ==========================================
+
+/* =========================================
+   LOAD TEACHER PROFILE
+========================================= */
 
 async function loadTeacherProfile(user) {
 
-  const reference = doc(db, "teachers", user.uid);
-  const snapshot = await getDoc(reference);
+  const snapshot = await getDoc(
+    doc(db, "teachers", user.uid)
+  );
 
   if (!snapshot.exists()) {
+
     throw new Error(
-      "Teacher profile not found in Firestore."
+      "No teacher profile was found for this account. If registration was interrupted, the Auth account exists but its Firestore profile needs to be created."
     );
   }
 
-  teacherProfile = snapshot.data();
+  const data = snapshot.data();
 
-  teacherProfile.subjects = Array.isArray(teacherProfile.subjects)
-    ? teacherProfile.subjects.filter(s => SUBJECTS.includes(s))
-    : [];
+  teacherProfile = {
+    ...data,
+    uid: user.uid,
 
-  if ($("welcomeName")) {
-    $("welcomeName").textContent = teacherProfile.name;
+    name: clean(data.name) || "Teacher",
+
+    email: clean(data.email) || user.email || "",
+
+    subjects: Array.isArray(data.subjects)
+      ? [...new Set(
+          data.subjects.filter(s => SUBJECTS.includes(s))
+        )]
+      : []
+  };
+
+  if (!teacherProfile.subjects.length) {
+
+    throw new Error(
+      "No subjects are saved in this teacher profile. Please contact the project administrator."
+    );
   }
 
-  if ($("sidebarName")) {
-    $("sidebarName").textContent = teacherProfile.name;
-  }
+  $("welcomeName").textContent =
+    teacherProfile.name;
 
-  if ($("sidebarEmail")) {
-    $("sidebarEmail").textContent = teacherProfile.email;
-  }
+  $("sidebarName").textContent =
+    teacherProfile.name;
 
-  if ($("settingsName")) {
-    $("settingsName").textContent = teacherProfile.name;
-  }
+  $("sidebarEmail").textContent =
+    teacherProfile.email;
 
-  if ($("settingsNameInput")) {
-    $("settingsNameInput").value = teacherProfile.name;
-  }
+  $("settingsName").textContent =
+    teacherProfile.name;
 
-  if ($("settingsEmail")) {
-    $("settingsEmail").textContent = teacherProfile.email;
-  }
+  $("settingsNameInput").value =
+    teacherProfile.name;
 
-  if ($("footerEmail")) {
-    $("footerEmail").textContent = teacherProfile.email;
-  }
+  $("settingsEmail").textContent =
+    teacherProfile.email;
 
-  const initials = clean(teacherProfile.name)
+  $("footerEmail").textContent =
+    teacherProfile.email;
+
+  const initials = teacherProfile.name
     .split(/\s+/)
-    .map(word => word[0])
+    .map(w => w[0])
     .join("")
     .slice(0, 2)
     .toUpperCase() || "T";
 
-  ["sidebarInitials", "topInitials", "settingsInitials"].forEach(id => {
-    if ($(id)) $(id).textContent = initials;
+  [
+    "sidebarInitials",
+    "topInitials",
+    "settingsInitials"
+  ].forEach(id => {
+
+    if ($(id)) {
+      $(id).textContent = initials;
+    }
+
   });
 
   renderSubjectNavigation();
 }
 
-// ==========================================
-// LOAD STUDENTS
-// ==========================================
+
+/* =========================================
+   LOAD STUDENTS FROM FIRESTORE
+========================================= */
 
 async function loadStudents() {
 
   if (!currentTeacher) return;
 
-  const reference = collection(
-    db,
-    "teachers",
-    currentTeacher.uid,
-    "students"
+  const snapshot = await getDocs(
+    collection(
+      db,
+      "teachers",
+      currentTeacher.uid,
+      "students"
+    )
   );
-
-  const snapshot = await getDocs(reference);
 
   students = snapshot.docs.map(item => ({
     id: item.id,
     ...item.data()
   }));
 
+  students.sort((a, b) =>
+    clean(a.name).localeCompare(clean(b.name))
+  );
+
   renderAll();
 }
 
-// ==========================================
-// ADD / UPDATE STUDENT
-// ==========================================
+
+/* =========================================
+   LOAD DASHBOARD
+========================================= */
+
+async function loadDashboardData(user = auth.currentUser) {
+
+  if (!user) return;
+
+  currentTeacher = user;
+
+  await loadTeacherProfile(user);
+
+  await loadStudents();
+
+  showApp();
+
+  navigateTo("dashboard");
+}
+
+
+/* =========================================
+   ADD / UPDATE STUDENT
+========================================= */
 
 async function saveStudent(event) {
+
   event?.preventDefault();
 
   if (!currentTeacher || !teacherProfile) return;
 
-  const roll = clean($("addReg")?.value);
-  const name = clean($("addName")?.value);
-  const email = clean($("addStudentEmail")?.value);
-  const year = Number($("addYear")?.value || 1);
+  const roll = clean($("addReg").value);
+  const name = clean($("addName").value);
+  const email = clean($("addStudentEmail").value);
+  const year = Number($("addYear").value || 1);
 
-  const selectedSubjects = getFormSubjects(
+  const subjects = getFormSubjects(
     "addStudentForm",
     teacherProfile.subjects
   );
@@ -461,13 +600,15 @@ async function saveStudent(event) {
   showMessage("addMessage", "");
 
   if (!roll || !name) {
+
     return showMessage(
       "addMessage",
       "Registration number and name are required."
     );
   }
 
-  if (!selectedSubjects.length) {
+  if (!subjects.length) {
+
     return showMessage(
       "addMessage",
       "Select at least one subject."
@@ -476,16 +617,21 @@ async function saveStudent(event) {
 
   const studentId = editingStudentId || roll;
 
-  const oldStudent = students.find(s => s.id === studentId);
+  const old = students.find(
+    s => s.id === studentId
+  );
 
-  const student = {
+  const record = {
     roll,
     name,
     email,
     year,
-    subjects: selectedSubjects,
-    attendance: oldStudent?.attendance || {},
-    results: oldStudent?.results || {},
+    subjects,
+
+    attendance: old?.attendance || {},
+
+    results: old?.results || {},
+
     updatedAt: serverTimestamp()
   };
 
@@ -501,108 +647,167 @@ async function saveStudent(event) {
 
     if (editingStudentId) {
 
-      await updateDoc(reference, student);
+      await updateDoc(
+        reference,
+        record
+      );
 
       editingStudentId = null;
-      showToast("Student updated successfully!");
+
+      showToast(
+        "Student updated successfully!"
+      );
 
     } else {
 
       if (students.some(s => s.id === studentId)) {
+
         return showMessage(
           "addMessage",
           "This registration number already exists."
         );
       }
 
-      await setDoc(reference, {
-        ...student,
-        createdAt: serverTimestamp()
-      });
+      await setDoc(
+        reference,
+        {
+          ...record,
+          createdAt: serverTimestamp()
+        }
+      );
 
-      showToast("Student added successfully!");
+      showToast(
+        "Student added successfully!"
+      );
     }
 
-    $("addStudentForm")?.reset();
+    $("addStudentForm").reset();
+
+    $("addPageTitle").textContent =
+      "Add Student";
 
     await loadStudents();
+
     navigateTo("students");
 
   } catch (error) {
 
     console.error(error);
-    showMessage("addMessage", error.message);
+
+    showMessage(
+      "addMessage",
+      error.message
+    );
   }
 }
 
-// ==========================================
-// EDIT STUDENT
-// ==========================================
+
+/* =========================================
+   EDIT STUDENT
+========================================= */
 
 function editStudent(id) {
 
-  const student = students.find(s => s.id === id);
+  const student = students.find(
+    s => s.id === id
+  );
+
   if (!student) return;
 
-  $("addReg").value = student.roll || "";
-  $("addName").value = student.name || "";
-  $("addStudentEmail").value = student.email || "";
-  $("addYear").value = String(student.year || 1);
+  $("addReg").value =
+    student.roll || "";
 
-  $("addStudentForm")
+  $("addName").value =
+    student.name || "";
+
+  $("addStudentEmail").value =
+    student.email || "";
+
+  $("addYear").value =
+    String(student.year || 1);
+
+  $("studentSubjectPicker")
     ?.querySelectorAll('input[type="checkbox"]')
     .forEach(input => {
-      input.checked = (student.subjects || []).includes(input.value);
+
+      input.checked =
+        (student.subjects || []).includes(
+          input.value
+        );
+
     });
 
   editingStudentId = id;
 
+  $("addPageTitle").textContent =
+    "Edit Student";
+
   navigateTo("add");
 }
 
-// ==========================================
-// DELETE STUDENT
-// ==========================================
+
+/* =========================================
+   DELETE STUDENT
+========================================= */
 
 async function deleteStudent(id) {
 
-  if (!confirm("Are you sure you want to delete this student?")) {
+  if (
+    !currentTeacher ||
+    !confirm(
+      "Are you sure you want to delete this student? This cannot be undone."
+    )
+  ) {
     return;
   }
 
   try {
 
-    await deleteDoc(doc(
-      db,
-      "teachers",
-      currentTeacher.uid,
-      "students",
-      id
-    ));
+    await deleteDoc(
+      doc(
+        db,
+        "teachers",
+        currentTeacher.uid,
+        "students",
+        id
+      )
+    );
 
     await loadStudents();
 
-    showToast("Student deleted successfully!");
+    showToast(
+      "Student deleted successfully!"
+    );
 
   } catch (error) {
+
     showToast(error.message);
   }
 }
 
-// ==========================================
-// ATTENDANCE
-// ==========================================
+
+/* =========================================
+   ATTENDANCE MANAGEMENT
+========================================= */
 
 async function saveAttendance(event) {
+
   event?.preventDefault();
 
-  const studentId = $("attendanceStudent")?.value;
-  const subject = $("attendanceSubject")?.value;
+  const studentId =
+    $("attendanceStudent").value;
 
-  const newHeld = Number($("classesHeld")?.value);
-  const newAttended = Number($("classesAttended")?.value);
+  const subject =
+    $("attendanceSubject").value;
+
+  const held =
+    Number($("classesHeld").value);
+
+  const attended =
+    Number($("classesAttended").value);
 
   if (!studentId || !subject) {
+
     return showMessage(
       "attendanceMessage",
       "Select a student and subject."
@@ -610,21 +815,28 @@ async function saveAttendance(event) {
   }
 
   if (
-    !Number.isInteger(newHeld) ||
-    !Number.isInteger(newAttended) ||
-    newHeld < 0 ||
-    newAttended < 0 ||
-    newAttended > newHeld
+    !Number.isInteger(held) ||
+    !Number.isInteger(attended) ||
+    held <= 0 ||
+    attended < 0 ||
+    attended > held
   ) {
+
     return showMessage(
       "attendanceMessage",
-      "Enter valid attendance numbers."
+      "Enter valid numbers. Classes held must be at least 1 and attended cannot exceed held."
     );
   }
 
-  const student = students.find(s => s.id === studentId);
+  const student = students.find(
+    s => s.id === studentId
+  );
 
-  if (!student || !student.subjects?.includes(subject)) {
+  if (
+    !student ||
+    !student.subjects?.includes(subject)
+  ) {
+
     return showMessage(
       "attendanceMessage",
       "Student is not enrolled in this subject."
@@ -633,25 +845,32 @@ async function saveAttendance(event) {
 
   try {
 
-    const previous = student.attendance?.[subject] || {
-      held: 0,
-      attended: 0
-    };
+    const previous =
+      student.attendance?.[subject] || {
+        held: 0,
+        attended: 0
+      };
 
-    await updateDoc(doc(
-      db,
-      "teachers",
-      currentTeacher.uid,
-      "students",
-      studentId
-    ), {
-      [`attendance.${subject}`]: {
-        held: Number(previous.held || 0) + newHeld,
-        attended: Number(previous.attended || 0) + newAttended
+    await updateDoc(
+      doc(
+        db,
+        "teachers",
+        currentTeacher.uid,
+        "students",
+        studentId
+      ),
+      {
+        [`attendance.${subject}`]: {
+          held:
+            Number(previous.held || 0) + held,
+
+          attended:
+            Number(previous.attended || 0) + attended
+        }
       }
-    });
+    );
 
-    $("attendanceForm")?.reset();
+    $("attendanceForm").reset();
 
     await loadStudents();
 
@@ -662,29 +881,49 @@ async function saveAttendance(event) {
     );
 
   } catch (error) {
-    showMessage("attendanceMessage", error.message);
+
+    showMessage(
+      "attendanceMessage",
+      error.message
+    );
   }
 }
 
-// ==========================================
-// SEMESTER RESULTS
-// ==========================================
+
+/* =========================================
+   ACADEMIC RESULTS
+========================================= */
 
 async function saveResult(event) {
+
   event?.preventDefault();
 
-  const studentId = $("resultStudent")?.value;
-  const semester = $("resultSemester")?.value;
-  const sgpa = Number($("resultSGPA")?.value);
+  const studentId =
+    $("resultStudent").value;
 
-  if (!studentId || !semester) {
+  const semester =
+    $("resultSemester").value;
+
+  const raw =
+    $("resultSGPA").value;
+
+  const sgpa = Number(raw);
+
+  if (!studentId) {
+
     return showMessage(
       "resultMessage",
-      "Select a student and semester."
+      "Select a student."
     );
   }
 
-  if (!Number.isFinite(sgpa) || sgpa < 0 || sgpa > 10) {
+  if (
+    raw === "" ||
+    !Number.isFinite(sgpa) ||
+    sgpa < 0 ||
+    sgpa > 10
+  ) {
+
     return showMessage(
       "resultMessage",
       "SGPA must be between 0 and 10."
@@ -693,15 +932,20 @@ async function saveResult(event) {
 
   try {
 
-    await updateDoc(doc(
-      db,
-      "teachers",
-      currentTeacher.uid,
-      "students",
-      studentId
-    ), {
-      [`results.${semester}`]: sgpa
-    });
+    await updateDoc(
+      doc(
+        db,
+        "teachers",
+        currentTeacher.uid,
+        "students",
+        studentId
+      ),
+      {
+        [`results.${semester}`]: sgpa
+      }
+    );
+
+    $("resultSGPA").value = "";
 
     await loadStudents();
 
@@ -712,201 +956,324 @@ async function saveResult(event) {
     );
 
   } catch (error) {
-    showMessage("resultMessage", error.message);
+
+    showMessage(
+      "resultMessage",
+      error.message
+    );
   }
 }
 
-// ==========================================
-// CALCULATIONS
-// ==========================================
+
+/* =========================================
+   CGPA CALCULATIONS
+========================================= */
 
 function getCGPA(student) {
 
-  const values = Object.values(student.results || {})
+  const values = Object.values(
+    student.results || {}
+  )
     .map(Number)
-    .filter(n => Number.isFinite(n));
+    .filter(n =>
+      Number.isFinite(n) &&
+      n >= 0 &&
+      n <= 10
+    );
 
-  if (!values.length) return "—";
-
-  return (
-    values.reduce((a, b) => a + b, 0) / values.length
-  ).toFixed(2);
+  return values.length
+    ? (
+        values.reduce((a, b) => a + b, 0) /
+        values.length
+      ).toFixed(2)
+    : "—";
 }
+
 
 function getYearCGPA(student, year) {
 
   const first = (year - 1) * 2 + 1;
 
-  const values = [first, first + 1]
+  const values = [
+    first,
+    first + 1
+  ]
     .map(sem => student.results?.[sem])
-    .filter(v => v !== undefined && v !== null)
-    .map(Number);
+    .filter(v =>
+      v !== undefined &&
+      v !== null &&
+      v !== ""
+    )
+    .map(Number)
+    .filter(Number.isFinite);
 
-  if (!values.length) return "—";
-
-  return (
-    values.reduce((a, b) => a + b, 0) / values.length
-  ).toFixed(2);
+  return values.length
+    ? (
+        values.reduce((a, b) => a + b, 0) /
+        values.length
+      ).toFixed(2)
+    : "—";
 }
+
+
+/* =========================================
+   ATTENDANCE CALCULATIONS
+========================================= */
 
 function getAttendance(student, subject) {
 
-  const data = student.attendance?.[subject];
+  const data =
+    student.attendance?.[subject];
 
-  if (!data || !data.held) return "—";
+  if (!data || !Number(data.held)) {
+    return "—";
+  }
 
   return (
-    (Number(data.attended) / Number(data.held)) * 100
+    (
+      Number(data.attended || 0) /
+      Number(data.held)
+    ) * 100
   ).toFixed(1) + "%";
 }
+
 
 function getOverallAttendance(student) {
 
   let held = 0;
   let attended = 0;
 
-  Object.values(student.attendance || {}).forEach(data => {
+  Object.values(
+    student.attendance || {}
+  ).forEach(data => {
+
     held += Number(data.held || 0);
+
     attended += Number(data.attended || 0);
+
   });
 
-  if (!held) return "—";
-
-  return ((attended / held) * 100).toFixed(1) + "%";
+  return held
+    ? ((attended / held) * 100).toFixed(1) + "%"
+    : "—";
 }
 
-// ==========================================
-// SUBJECT NAVIGATION
-// ==========================================
+
+/* =========================================
+   SUBJECT NAVIGATION
+========================================= */
 
 function renderSubjectNavigation() {
 
-  const container = $("subjectNavigation");
+  const container =
+    $("subjectNavigation");
+
   if (!container || !teacherProfile) return;
 
-  container.innerHTML = teacherProfile.subjects.map(subject => `
-    <button class="nav-link subject-nav-item"
-      onclick="openSubject('${escapeHTML(subject)}')">
-      <span class="nav-icon">▦</span>
-      ${escapeHTML(subject)}
-    </button>
-  `).join("");
+  container.innerHTML =
+    teacherProfile.subjects.map(subject => `
+      <button
+        class="nav-link subject-nav-item"
+        data-subject="${escapeHTML(subject)}"
+      >
+        <span class="nav-icon">▦</span>
+        ${escapeHTML(subject)}
+      </button>
+    `).join("");
+
+  container
+    .querySelectorAll("[data-subject]")
+    .forEach(button => {
+
+      button.addEventListener("click", () => {
+        openSubject(button.dataset.subject);
+      });
+
+    });
 
   renderSubjectPickers();
+
   renderDashboardSubjects();
 }
+
+
+/* =========================================
+   SUBJECT PICKERS
+========================================= */
 
 function renderSubjectPickers() {
 
   if (!teacherProfile) return;
 
-  ["studentSubjectPicker", "settingsSubjectPicker"].forEach(id => {
+  const teacherSubjects =
+    teacherProfile.subjects || [];
 
-    const container = $(id);
-    if (!container) return;
+  const studentPicker =
+    $("studentSubjectPicker");
 
-    const checkboxName =
-      id === "studentSubjectPicker"
-        ? "studentSubject"
-        : "teacherSubject";
+  if (studentPicker) {
 
-    container.innerHTML = teacherProfile.subjects.map(subject => `
-      <label>
-        <input type="checkbox"
-          name="${checkboxName}"
-          value="${escapeHTML(subject)}">
-        <span>${escapeHTML(subject)}</span>
-      </label>
-    `).join("");
-  });
+    studentPicker.innerHTML =
+      teacherSubjects.map(subject => `
+        <label>
+          <input
+            type="checkbox"
+            name="studentSubject"
+            value="${escapeHTML(subject)}"
+          >
+          <span>${escapeHTML(subject)}</span>
+        </label>
+      `).join("");
+  }
 
-  const attendanceSelect = $("attendanceSubject");
+  const settingsPicker =
+    $("settingsSubjectPicker");
+
+  if (settingsPicker) {
+
+    settingsPicker.innerHTML =
+      SUBJECTS.map(subject => `
+        <label>
+          <input
+            type="checkbox"
+            name="teacherSubject"
+            value="${escapeHTML(subject)}"
+            ${teacherSubjects.includes(subject) ? "checked" : ""}
+          >
+          <span>${escapeHTML(subject)}</span>
+        </label>
+      `).join("");
+  }
+
+  const attendanceSelect =
+    $("attendanceSubject");
 
   if (attendanceSelect) {
-    attendanceSelect.innerHTML = teacherProfile.subjects.map(subject => `
-      <option value="${escapeHTML(subject)}">
-        ${escapeHTML(subject)}
-      </option>
-    `).join("");
+
+    attendanceSelect.innerHTML =
+      teacherSubjects.map(subject => `
+        <option value="${escapeHTML(subject)}">
+          ${escapeHTML(subject)}
+        </option>
+      `).join("");
   }
 }
 
-// ==========================================
-// DASHBOARD SUBJECT CARDS
-// ==========================================
+
+/* =========================================
+   DASHBOARD SUBJECT CARDS
+========================================= */
 
 function renderDashboardSubjects() {
 
-  const container = $("dashboardSubjects");
+  const container =
+    $("dashboardSubjects");
+
   if (!container || !teacherProfile) return;
 
-  container.innerHTML = teacherProfile.subjects.map(subject => {
+  container.innerHTML =
+    teacherProfile.subjects.map(subject => {
 
-    const count = students.filter(s =>
-      s.subjects?.includes(subject)
-    ).length;
+      const count = students.filter(
+        s => s.subjects?.includes(subject)
+      ).length;
 
-    return `
-      <button class="subject-card"
-        onclick="openSubject('${escapeHTML(subject)}')">
-        <strong>${escapeHTML(subject)}</strong>
-        <span>${count} students</span>
-      </button>
-    `;
-  }).join("");
+      return `
+        <button
+          class="subject-card"
+          data-subject="${escapeHTML(subject)}"
+        >
+          <strong>${escapeHTML(subject)}</strong>
+          <small>${count} students</small>
+        </button>
+      `;
+
+    }).join("");
+
+  container
+    .querySelectorAll("[data-subject]")
+    .forEach(button => {
+
+      button.addEventListener("click", () => {
+        openSubject(button.dataset.subject);
+      });
+
+    });
 }
 
-// ==========================================
-// OPEN SUBJECT
-// ==========================================
+
+/* =========================================
+   OPEN SUBJECT PAGE
+========================================= */
 
 function openSubject(subject) {
 
-  if (!teacherProfile?.subjects.includes(subject)) return;
+  if (!teacherProfile?.subjects.includes(subject)) {
+    return;
+  }
 
   selectedSubject = subject;
 
-  const filtered = students.filter(s =>
-    s.subjects?.includes(subject)
+  const filtered = students.filter(
+    s => s.subjects?.includes(subject)
   );
 
-  $("subjectPageTitle").textContent = subject;
+  $("subjectPageTitle").textContent =
+    subject;
+
   $("subjectPageDescription").textContent =
     "Student records and performance for " + subject;
 
-  $("subjectStudents").textContent = filtered.length;
+  $("subjectStudents").textContent =
+    filtered.length;
 
-  const attendanceValues = filtered
-    .map(s => Number.parseFloat(getAttendance(s, subject)))
+  const attendance = filtered
+    .map(s =>
+      Number.parseFloat(
+        getAttendance(s, subject)
+      )
+    )
     .filter(Number.isFinite);
 
-  $("subjectAttendance").textContent = attendanceValues.length
-    ? (
-        attendanceValues.reduce((a, b) => a + b, 0) /
-        attendanceValues.length
-      ).toFixed(1) + "%"
-    : "—";
+  $("subjectAttendance").textContent =
+    attendance.length
+      ? (
+          attendance.reduce((a, b) => a + b, 0) /
+          attendance.length
+        ).toFixed(1) + "%"
+      : "—";
 
   $("subjectMarks").textContent = "—";
 
-  const body = $("subjectTableBody");
+  $("subjectTableBody").innerHTML =
+    filtered.map(student => `
+      <tr>
+        <td>${escapeHTML(student.roll)}</td>
+        <td>${escapeHTML(student.name)}</td>
+        <td>${getAttendance(student, subject)}</td>
+        <td>—</td>
+        <td>
+          <button
+            class="table-action"
+            data-edit="${escapeHTML(student.id)}"
+          >
+            Edit
+          </button>
+        </td>
+      </tr>
+    `).join("");
 
-  body.innerHTML = filtered.map(student => `
-    <tr>
-      <td>${escapeHTML(student.roll)}</td>
-      <td>${escapeHTML(student.name)}</td>
-      <td>${getAttendance(student, subject)}</td>
-      <td>—</td>
-      <td>
-        <button class="secondary-button"
-          onclick="editStudent('${escapeHTML(student.id)}')">
-          Edit
-        </button>
-      </td>
-    </tr>
-  `).join("");
+  $("subjectTableBody")
+    .querySelectorAll("[data-edit]")
+    .forEach(button => {
 
-  $("subjectEmpty")?.classList.toggle(
+      button.addEventListener("click", () => {
+        editStudent(button.dataset.edit);
+      });
+
+    });
+
+  $("subjectEmpty").classList.toggle(
     "hidden",
     filtered.length > 0
   );
@@ -914,282 +1281,342 @@ function openSubject(subject) {
   navigateTo("subject");
 }
 
-// ==========================================
-// STUDENT TABLE
-// ==========================================
+
+/* =========================================
+   STUDENT DIRECTORY
+========================================= */
 
 function renderStudents() {
 
   const body = $("studentTableBody");
+
   if (!body) return;
 
-  const search = clean($("tableSearch")?.value).toLowerCase();
+  const search = clean(
+    $("tableSearch")?.value
+  ).toLowerCase();
 
-  const filtered = students.filter(student =>
-    student.name?.toLowerCase().includes(search) ||
-    student.roll?.toLowerCase().includes(search)
+  const filtered = students.filter(s =>
+    clean(s.name).toLowerCase().includes(search) ||
+    clean(s.roll).toLowerCase().includes(search)
   );
 
-  body.innerHTML = filtered.map(student => `
+  body.innerHTML = filtered.map(s => `
     <tr>
-      <td>${escapeHTML(student.roll)}</td>
-      <td>${escapeHTML(student.name)}</td>
-      <td>${getCGPA(student)}</td>
-      <td>${getOverallAttendance(student)}</td>
+      <td>${escapeHTML(s.roll)}</td>
+      <td><strong>${escapeHTML(s.name)}</strong></td>
+      <td>${getCGPA(s)}</td>
+      <td>${getOverallAttendance(s)}</td>
       <td>
-        <button class="secondary-button"
-          onclick="editStudent('${escapeHTML(student.id)}')">
+        <button
+          class="table-action"
+          data-edit="${escapeHTML(s.id)}"
+        >
           Edit
         </button>
-        <button class="secondary-button"
-          onclick="deleteStudent('${escapeHTML(student.id)}')">
+
+        <button
+          class="table-action delete"
+          data-delete="${escapeHTML(s.id)}"
+        >
           Delete
         </button>
       </td>
     </tr>
   `).join("");
 
-  $("recordCount").textContent =
-    filtered.length + " records";
+  body
+    .querySelectorAll("[data-edit]")
+    .forEach(button => {
 
-  $("emptyStudents")?.classList.toggle(
+      button.addEventListener("click", () => {
+        editStudent(button.dataset.edit);
+      });
+
+    });
+
+  body
+    .querySelectorAll("[data-delete]")
+    .forEach(button => {
+
+      button.addEventListener("click", () => {
+        deleteStudent(button.dataset.delete);
+      });
+
+    });
+
+  $("recordCount").textContent =
+    `${filtered.length} records`;
+
+  $("emptyStudents").classList.toggle(
     "hidden",
     filtered.length > 0
   );
 }
 
-// ==========================================
-// ATTENDANCE TABLE
-// ==========================================
 
-function renderAttendance() {
-
-  const body = $("attendanceTableBody");
-  if (!body) return;
-
-  const rows = [];
-
-  students.forEach(student => {
-
-    (student.subjects || []).forEach(subject => {
-
-      const data = student.attendance?.[subject] || {
-        held: 0,
-        attended: 0
-      };
-
-      rows.push(`
-        <tr>
-          <td>${escapeHTML(student.name)}</td>
-          <td>${escapeHTML(subject)}</td>
-          <td>${Number(data.attended || 0)}</td>
-          <td>${Number(data.held || 0)}</td>
-          <td>${getAttendance(student, subject)}</td>
-        </tr>
-      `);
-    });
-  });
-
-  body.innerHTML = rows.join("");
-
-  populateStudentSelects();
-}
-
-// ==========================================
-// ACADEMIC TABLE
-// ==========================================
-
-function renderAcademic() {
-
-  const body = $("academicTableBody");
-  if (!body) return;
-
-  const filter = $("academicFilter")?.value || "";
-
-  const filtered = students.filter(s =>
-    !filter || s.id === filter
-  );
-
-  body.innerHTML = filtered.map(student => {
-
-    const semesterResults = Array.from(
-      { length: 8 },
-      (_, i) => student.results?.[i + 1] ?? "—"
-    ).join(" / ");
-
-    return `
-      <tr>
-        <td>${escapeHTML(student.roll)}</td>
-        <td>${escapeHTML(student.name)}</td>
-        <td>${semesterResults}</td>
-        <td>${getYearCGPA(student, 1)}</td>
-        <td>${getYearCGPA(student, 2)}</td>
-        <td>${getCGPA(student)}</td>
-      </tr>
-    `;
-  }).join("");
-}
-
-// ==========================================
-// POPULATE STUDENT SELECT BOXES
-// ==========================================
+/* =========================================
+   POPULATE STUDENT DROPDOWNS
+========================================= */
 
 function populateStudentSelects() {
 
   ["attendanceStudent", "resultStudent"].forEach(id => {
 
     const select = $(id);
-    if (!select) return;
 
     const previous = select.value;
 
-    select.innerHTML = `
-      <option value="">Select student</option>
-      ${students.map(student => `
-        <option value="${escapeHTML(student.id)}">
-          ${escapeHTML(student.name)} (${escapeHTML(student.roll)})
+    select.innerHTML =
+      `<option value="">Select student</option>` +
+      students.map(s => `
+        <option value="${escapeHTML(s.id)}">
+          ${escapeHTML(s.name)}
+          (${escapeHTML(s.roll)})
         </option>
-      `).join("")}
-    `;
+      `).join("");
 
     if (students.some(s => s.id === previous)) {
       select.value = previous;
     }
+
   });
 
-  const academicFilter = $("academicFilter");
+  const filter = $("academicFilter");
 
-  if (academicFilter) {
+  const previous = filter.value;
 
-    const previous = academicFilter.value;
+  filter.innerHTML =
+    `<option value="">All Students</option>` +
+    students.map(s => `
+      <option value="${escapeHTML(s.id)}">
+        ${escapeHTML(s.name)}
+      </option>
+    `).join("");
 
-    academicFilter.innerHTML = `
-      <option value="">All Students</option>
-      ${students.map(student => `
-        <option value="${escapeHTML(student.id)}">
-          ${escapeHTML(student.name)}
-        </option>
-      `).join("")}
-    `;
-
-    academicFilter.value = previous;
+  if (students.some(s => s.id === previous)) {
+    filter.value = previous;
   }
 }
 
-// ==========================================
-// DASHBOARD
-// ==========================================
+
+/* =========================================
+   ATTENDANCE TABLE
+========================================= */
+
+function renderAttendance() {
+
+  $("attendanceTableBody").innerHTML =
+    students.flatMap(student =>
+
+      (student.subjects || []).map(subject => {
+
+        const data =
+          student.attendance?.[subject] || {
+            held: 0,
+            attended: 0
+          };
+
+        return `
+          <tr>
+            <td>${escapeHTML(student.name)}</td>
+            <td>${escapeHTML(subject)}</td>
+            <td>${Number(data.attended || 0)}</td>
+            <td>${Number(data.held || 0)}</td>
+            <td>${getAttendance(student, subject)}</td>
+          </tr>
+        `;
+      })
+
+    ).join("");
+
+  populateStudentSelects();
+}
+
+
+/* =========================================
+   ACADEMIC RESULTS TABLE
+========================================= */
+
+function renderAcademic() {
+
+  const filter =
+    $("academicFilter")?.value || "";
+
+  const filtered = students.filter(s =>
+    !filter || s.id === filter
+  );
+
+  $("academicTableBody").innerHTML =
+    filtered.map(s => {
+
+      const results = Array
+        .from({ length: 8 }, (_, i) =>
+          s.results?.[i + 1] ?? "—"
+        )
+        .map(v =>
+          typeof v === "number"
+            ? v.toFixed(2)
+            : v
+        )
+        .join(" / ");
+
+      return `
+        <tr>
+          <td>${escapeHTML(s.roll)}</td>
+          <td>${escapeHTML(s.name)}</td>
+          <td>${results}</td>
+          <td>${getYearCGPA(s, 1)}</td>
+          <td>${getYearCGPA(s, 2)}</td>
+          <td>${getCGPA(s)}</td>
+        </tr>
+      `;
+
+    }).join("");
+}
+
+
+/* =========================================
+   DASHBOARD STATISTICS
+========================================= */
 
 function renderDashboard() {
 
   if (!teacherProfile) return;
 
-  $("totalStudents").textContent = students.length;
+  $("totalStudents").textContent =
+    students.length;
 
   $("subjectCount").textContent =
     teacherProfile.subjects.length;
 
-  const attendanceValues = students
-    .map(s => Number.parseFloat(getOverallAttendance(s)))
+  const attendance = students
+    .map(s =>
+      Number.parseFloat(getOverallAttendance(s))
+    )
     .filter(Number.isFinite);
 
   $("averageAttendance").textContent =
-    attendanceValues.length
+    attendance.length
       ? (
-          attendanceValues.reduce((a, b) => a + b, 0) /
-          attendanceValues.length
+          attendance.reduce((a, b) => a + b, 0) /
+          attendance.length
         ).toFixed(1) + "%"
       : "—";
 
-  const cgpaValues = students
-    .map(s => Number.parseFloat(getCGPA(s)))
+  const cgpa = students
+    .map(s =>
+      Number.parseFloat(getCGPA(s))
+    )
     .filter(Number.isFinite);
 
   $("averageSGPA").textContent =
-    cgpaValues.length
+    cgpa.length
       ? (
-          cgpaValues.reduce((a, b) => a + b, 0) /
-          cgpaValues.length
+          cgpa.reduce((a, b) => a + b, 0) /
+          cgpa.length
         ).toFixed(2)
       : "—";
 
-  const recent = $("recentStudents");
+  $("recentStudents").innerHTML =
+    students.slice(-5).reverse().map(s => `
+      <div class="recent-item">
+        <div class="student-initial">
+          ${escapeHTML(
+            clean(s.name).charAt(0).toUpperCase()
+          )}
+        </div>
 
-  if (recent) {
-
-    const latest = students.slice(-5).reverse();
-
-    recent.innerHTML = latest.length
-      ? latest.map(student => `
-          <div class="recent-student">
-            <strong>${escapeHTML(student.name)}</strong>
-            <span>${escapeHTML(student.roll)}</span>
-          </div>
-        `).join("")
-      : "<p>No students added yet.</p>";
-  }
+        <div>
+          <strong>${escapeHTML(s.name)}</strong>
+          <small>${escapeHTML(s.roll)}</small>
+        </div>
+      </div>
+    `).join("") ||
+    "<p>No students added yet.</p>";
 
   renderDashboardSubjects();
 }
 
-// ==========================================
-// RENDER ALL
-// ==========================================
+
+/* =========================================
+   REFRESH ALL DASHBOARD SECTIONS
+========================================= */
 
 function renderAll() {
+
   renderStudents();
+
   renderAttendance();
+
   renderAcademic();
+
   renderDashboard();
 }
 
-// ==========================================
-// PAGE NAVIGATION
-// ==========================================
+
+/* =========================================
+   PAGE NAVIGATION
+========================================= */
 
 const PAGE_TITLES = {
+
   dashboard: "Overview",
+
   students: "Student Directory",
+
   add: "Add Student",
+
   attendance: "Attendance",
+
   academic: "Academic Results",
+
   subject: "Subject Workspace",
+
   settings: "Account Settings"
+
 };
+
 
 function navigateTo(page) {
 
-  document.querySelectorAll(".page-section").forEach(section => {
-    section.classList.add("hidden");
-  });
+  document
+    .querySelectorAll(".page-section")
+    .forEach(section => {
+      section.classList.add("hidden");
+    });
 
-  const target = $("page-" + page);
-
-  if (target) {
-    target.classList.remove("hidden");
-  }
+  $("page-" + page)?.classList.remove("hidden");
 
   $("topbarTitle").textContent =
     PAGE_TITLES[page] || "StudentHub";
 
-  document.querySelectorAll("[data-page]").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.page === page
-    );
-  });
+  document
+    .querySelectorAll("[data-page]")
+    .forEach(button => {
 
-  $("sidebar")?.classList.remove("sidebar-open");
+      button.classList.toggle(
+        "active",
+        button.dataset.page === page
+      );
+
+    });
+
+  $("sidebar")?.classList.remove("open");
 }
 
-// ==========================================
-// SETTINGS
-// ==========================================
+
+/* =========================================
+   ACCOUNT SETTINGS
+========================================= */
 
 async function saveSettings(event) {
+
   event?.preventDefault();
 
-  const name = clean($("settingsNameInput")?.value);
+  const name = clean(
+    $("settingsNameInput").value
+  );
 
   const subjects = getFormSubjects(
     "settingsForm",
@@ -1197,6 +1624,7 @@ async function saveSettings(event) {
   );
 
   if (!name || !subjects.length) {
+
     return showMessage(
       "settingsMessage",
       "Enter your name and select at least one subject."
@@ -1215,9 +1643,11 @@ async function saveSettings(event) {
     );
 
     teacherProfile.name = name;
+
     teacherProfile.subjects = subjects;
 
     await loadTeacherProfile(currentTeacher);
+
     await loadStudents();
 
     showMessage(
@@ -1227,203 +1657,358 @@ async function saveSettings(event) {
     );
 
   } catch (error) {
-    showMessage("settingsMessage", error.message);
+
+    showMessage(
+      "settingsMessage",
+      error.message
+    );
   }
 }
 
-// ==========================================
-// LOAD DASHBOARD
-// ==========================================
 
-async function loadDashboardData() {
-
-  currentTeacher = auth.currentUser;
-
-  if (!currentTeacher) return;
-
-  await loadTeacherProfile(currentTeacher);
-  await loadStudents();
-
-  showApp();
-  navigateTo("dashboard");
-}
-
-// ==========================================
-// AUTHENTICATION STATE
-// ==========================================
-
-onAuthStateChanged(auth, async user => {
-
-  if (user) {
-
-    currentTeacher = user;
-
-    try {
-
-      await loadDashboardData();
-
-    } catch (error) {
-
-      console.error(error);
-      showToast(error.message);
-      showLogin();
-    }
-
-  } else {
-
-    currentTeacher = null;
-    teacherProfile = null;
-    students = [];
-
-    showLogin();
-  }
-});
-
-// ==========================================
-// THEME
-// ==========================================
+/* =========================================
+   DARK / LIGHT THEME
+========================================= */
 
 function toggleTheme() {
 
-  document.body.classList.toggle("dark-mode");
+  document.body.classList.toggle("dark");
 
-  const dark = document.body.classList.contains("dark-mode");
+  const dark =
+    document.body.classList.contains("dark");
 
   localStorage.setItem(
     "studenthub_theme",
     dark ? "dark" : "light"
   );
 
-  $("themeIcon").textContent = dark ? "☀" : "☾";
-  $("themeText").textContent = dark ? "Light mode" : "Dark mode";
+  $("themeIcon").textContent =
+    dark ? "☀" : "☾";
+
+  $("themeText").textContent =
+    dark ? "Light mode" : "Dark mode";
 }
+
 
 function loadTheme() {
 
   const dark =
     localStorage.getItem("studenthub_theme") === "dark";
 
-  document.body.classList.toggle("dark-mode", dark);
+  document.body.classList.toggle(
+    "dark",
+    dark
+  );
 
-  $("themeIcon").textContent = dark ? "☀" : "☾";
-  $("themeText").textContent = dark ? "Light mode" : "Dark mode";
+  $("themeIcon").textContent =
+    dark ? "☀" : "☾";
+
+  $("themeText").textContent =
+    dark ? "Light mode" : "Dark mode";
 }
 
-// ==========================================
-// EVENT LISTENERS
-// ==========================================
 
-function bind(id, event, callback) {
-  $(id)?.addEventListener(event, callback);
+/* =========================================
+   EVENT LISTENER HELPER
+========================================= */
+
+function bind(id, event, handler) {
+
+  $(id)?.addEventListener(
+    event,
+    handler
+  );
 }
+
+
+/* =========================================
+   FORM EVENT LISTENERS
+========================================= */
 
 bind("loginForm", "submit", loginTeacher);
+
 bind("registerForm", "submit", registerTeacher);
+
 bind("addStudentForm", "submit", saveStudent);
+
 bind("attendanceForm", "submit", saveAttendance);
+
 bind("resultForm", "submit", saveResult);
+
 bind("settingsForm", "submit", saveSettings);
 
 bind("logoutButton", "click", logoutTeacher);
+
 bind("forgotPassword", "click", resetPassword);
+
 bind("themeToggle", "click", toggleTheme);
 
+
+/* =========================================
+   LOGIN / REGISTER SWITCHING
+========================================= */
+
 bind("showRegister", "click", () => {
+
+  showMessage("registerError", "");
+
   showView("registerView");
+
 });
+
 
 bind("showLogin", "click", () => {
+
   showView("loginView");
+
 });
+
+
+/* =========================================
+   SETTINGS PASSWORD RESET
+========================================= */
 
 bind("settingsResetPassword", "click", async () => {
+
   const email = teacherProfile?.email;
 
-  if (!email) return showToast("Teacher email not found.");
+  if (!email) {
+
+    return showToast(
+      "Teacher email not found."
+    );
+  }
 
   try {
-    await sendPasswordResetEmail(auth, email);
-    showToast("Password reset email sent!");
+
+    await sendPasswordResetEmail(
+      auth,
+      email
+    );
+
+    showToast(
+      "Password reset email sent!"
+    );
+
   } catch (error) {
+
     showToast(error.message);
   }
+
 });
+
+
+/* =========================================
+   SEARCH AND FILTER
+========================================= */
 
 bind("tableSearch", "input", renderStudents);
+
 bind("academicFilter", "change", renderAcademic);
 
-// Page navigation buttons
-document.querySelectorAll("[data-page]").forEach(button => {
-  button.addEventListener("click", () => {
-    navigateTo(button.dataset.page);
-  });
-});
 
-// Dashboard quick navigation buttons
-document.querySelectorAll("[data-go]").forEach(button => {
-  button.addEventListener("click", () => {
-    navigateTo(button.dataset.go);
-  });
-});
+/* =========================================
+   MOBILE SIDEBAR
+========================================= */
 
-// Password visibility
-document.querySelectorAll("[data-toggle]").forEach(button => {
-
-  button.addEventListener("click", () => {
-
-    const input = $(button.dataset.toggle);
-
-    if (!input) return;
-
-    const visible = input.type === "password";
-
-    input.type = visible ? "text" : "password";
-    button.textContent = visible ? "Hide" : "Show";
-  });
-});
-
-// Mobile sidebar
 bind("menuToggle", "click", () => {
-  $("sidebar")?.classList.toggle("sidebar-open");
+
+  $("sidebar")?.classList.toggle("open");
+
 });
 
-// Current date
-if ($("todayLabel")) {
-  $("todayLabel").textContent =
-    new Date().toLocaleDateString("en-IN", {
+
+/* =========================================
+   CLEAR STUDENT FORM
+========================================= */
+
+bind("clearStudentButton", "click", () => {
+
+  editingStudentId = null;
+
+  $("addPageTitle").textContent =
+    "Add Student";
+
+});
+
+
+/* =========================================
+   SIDEBAR NAVIGATION
+========================================= */
+
+document
+  .querySelectorAll("[data-page]")
+  .forEach(button => {
+
+    button.addEventListener("click", () => {
+
+      navigateTo(button.dataset.page);
+
+    });
+
+  });
+
+
+/* =========================================
+   DASHBOARD QUICK NAVIGATION
+========================================= */
+
+document
+  .querySelectorAll("[data-go]")
+  .forEach(button => {
+
+    button.addEventListener("click", () => {
+
+      navigateTo(button.dataset.go);
+
+    });
+
+  });
+
+
+/* =========================================
+   PASSWORD SHOW / HIDE
+========================================= */
+
+document
+  .querySelectorAll("[data-toggle]")
+  .forEach(button => {
+
+    button.addEventListener("click", () => {
+
+      const input = $(button.dataset.toggle);
+
+      if (!input) return;
+
+      const visible =
+        input.type === "password";
+
+      input.type =
+        visible ? "text" : "password";
+
+      button.textContent =
+        visible ? "Hide" : "Show";
+
+    });
+
+  });
+
+
+/* =========================================
+   INITIAL PAGE SETUP
+========================================= */
+
+$("todayLabel").textContent =
+  new Date().toLocaleDateString(
+    "en-IN",
+    {
       weekday: "short",
       day: "numeric",
       month: "short",
       year: "numeric"
-    });
-}
+    }
+  );
 
-// Remember email
-const savedEmail = localStorage.getItem("studenthub_email");
 
-if (savedEmail && $("loginEmail")) {
+const savedEmail =
+  localStorage.getItem("studenthub_email");
+
+if (savedEmail) {
+
   $("loginEmail").value = savedEmail;
+
 }
 
-// Load theme
 loadTheme();
 
-// ==========================================
-// GLOBAL FUNCTIONS FOR HTML
-// ==========================================
+
+/* =========================================
+   FIREBASE AUTHENTICATION LISTENER
+========================================= */
+
+onAuthStateChanged(auth, async user => {
+
+  if (
+    registrationInProgress ||
+    authLoadInProgress
+  ) {
+    return;
+  }
+
+  if (!user) {
+
+    currentTeacher = null;
+
+    teacherProfile = null;
+
+    students = [];
+
+    showLogin();
+
+    return;
+  }
+
+  authLoadInProgress = true;
+
+  currentTeacher = user;
+
+  try {
+
+    await loadDashboardData(user);
+
+  } catch (error) {
+
+    console.error(
+      "Authentication/profile load:",
+      error
+    );
+
+    showLogin();
+
+    showMessage(
+      "loginError",
+      error.message
+    );
+
+  } finally {
+
+    authLoadInProgress = false;
+
+  }
+
+});
+
+
+/* =========================================
+   EXPOSE FUNCTIONS FOR DEBUGGING
+========================================= */
 
 Object.assign(window, {
+
   registerTeacher,
+
   loginTeacher,
+
   logoutTeacher,
+
   resetPassword,
+
   saveStudent,
+
   editStudent,
+
   deleteStudent,
+
   saveAttendance,
+
   saveResult,
+
   saveSettings,
+
   navigateTo,
+
   openSubject,
+
   toggleTheme
+
 });
