@@ -1,365 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#6655d9">
-  <title>StudentHub | Academic Management</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact Management System | BST</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="authScreen" class="auth-screen">
-    <div class="auth-decoration auth-decoration-one"></div>
-    <div class="auth-decoration auth-decoration-two"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+</svg>
 
-    <div class="auth-brand">
-      <div class="brand-mark">S</div>
-      <span>Student<span class="brand-highlight">Hub</span></span>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand"><span class="logo"><svg class="i"><use href="#i-tree"/></svg></span>ContactBST</div>
+    <nav class="nav">
+      <a href="#top" class="active"><svg class="i"><use href="#i-home"/></svg>Dashboard</a>
+      <a href="#manage"><svg class="i"><use href="#i-plus"/></svg>Manage contacts</a>
+      <a href="#contacts"><svg class="i"><use href="#i-list"/></svg>All contacts</a>
+      <a href="#tree"><svg class="i"><use href="#i-tree"/></svg>Tree view</a>
+      <a href="#how"><svg class="i"><use href="#i-book"/></svg>How it works</a>
+    </nav>
+    <div class="recent">
+      <h3>Recent activity</h3>
+      <ul id="log"></ul>
+    </div>
+    <button class="btn ghost wide" id="sample">Load sample data</button>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="top">
+    <header class="topbar">
+      <div class="searchbar"><svg class="i"><use href="#i-search"/></svg>
+        <input id="quick" type="text" inputmode="numeric" placeholder="Quick find by contact ID" aria-label="Quick find by contact ID">
+        <kbd>Enter</kbd>
+      </div>
+      <span class="pill">Binary Search Tree</span>
+      <span class="avatar" aria-hidden="true">CM</span>
+    </header>
+
+    <section class="hero" id="manage">
+      <h1>Contacts, always kept in order</h1>
+      <p>Add, find and remove contacts by their unique ID.</p>
+
+      <form class="panel composer" id="form" autocomplete="off">
+        <div class="fields">
+          <label>Contact ID<input id="cid" type="text" inputmode="numeric" placeholder="e.g. 101"></label>
+          <label>Name<input id="cname" type="text" placeholder="e.g. Aarav Sharma"></label>
+          <label>Phone number<input id="cphone" type="tel" placeholder="e.g. 9876543210"></label>
+          <button class="btn primary" type="submit"><svg class="i"><use href="#i-plus"/></svg>Add contact</button>
+        </div>
+      </form>
+
+      <div class="chips">
+        <button class="chip" id="bSearch"><svg class="i"><use href="#i-search"/></svg>Search by ID</button>
+        <button class="chip" id="bDelete"><svg class="i"><use href="#i-trash"/></svg>Delete by ID</button>
+        <button class="chip" id="bShow"><svg class="i"><use href="#i-list"/></svg>Display all</button>
+        <button class="chip" id="bClear">Clear all</button>
+      </div>
+      <p class="msg" id="msg" role="status" aria-live="polite">Fill in the form to add a contact, or enter just an ID to search or delete.</p>
+    </section>
+
+    <section class="panel" id="contacts">
+      <div class="panel-head"><h2>All contacts</h2><span class="muted">Inorder traversal, ascending by ID</span></div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" id="tree">
+      <div class="panel-head"><h2>Tree view</h2><span class="muted">Smaller IDs go left, larger go right</span></div>
+      <div class="scroll tree-wrap"><svg id="treeSvg" role="img" aria-label="Binary search tree diagram"></svg></div>
+    </section>
+
+    <section id="how">
+      <div class="how">
+        <article class="panel tile"><h3>Insert</h3><p>Start at the root. Go left if the new ID is smaller, right if larger, and attach it at the first empty spot. Duplicate IDs are rejected.</p><small>O(h)</small></article>
+        <article class="panel tile"><h3>Search</h3><p>Compare the ID with each node and move left or right until it matches or the path ends.</p><small>O(h)</small></article>
+        <article class="panel tile"><h3>Delete</h3><p>A leaf is removed. A node with one child is replaced by that child. With two children, copy the inorder successor, then delete it.</p><small>O(h)</small></article>
+        <article class="panel tile"><h3>Display</h3><p>Visit left subtree, then the node, then the right subtree. The output is sorted by contact ID.</p><small>O(n)</small></article>
+      </div>
+    </section>
+  </main>
+
+  <!-- Right rail -->
+  <aside class="rail">
+    <div class="panel orb-card">
+      <h3>Tree status</h3>
+      <p class="muted">Live shape of your BST</p>
+      <div class="orb"><i></i><i></i><i></i><b></b></div>
+      <dl class="kv"><div><dt>Contacts</dt><dd id="sN">0</dd></div><div><dt>Height</dt><dd id="sH">0</dd></div><div><dt>Root ID</dt><dd id="sR">-</dd></div></dl>
     </div>
 
-    <main class="auth-layout">
-      <section class="auth-intro">
-        <span class="eyebrow"><span class="eyebrow-dot"></span> A smarter academic workspace</span>
-        <h1>A clearer view of <span>academic progress.</span></h1>
-        <p>A unified academic workspace designed to simplify student information, attendance and performance tracking.</p>
-        <div class="auth-benefits">
-          <div><span class="benefit-icon">✓</span> Centralised academic information</div>
-          <div><span class="benefit-icon">✓</span> Attendance overview</div>
-          <div><span class="benefit-icon">✓</span> Performance insights</div>
-       </div>
-      </section>
+    <div class="panel">
+      <h3>Operations</h3>
+      <ul class="checks">
+        <li><svg class="i"><use href="#i-check"/></svg>Insert contact</li>
+        <li><svg class="i"><use href="#i-check"/></svg>Search by ID</li>
+        <li><svg class="i"><use href="#i-check"/></svg>Delete by ID</li>
+        <li><svg class="i"><use href="#i-check"/></svg>Inorder display</li>
+      </ul>
+    </div>
 
-      <section class="auth-card">
-        <div class="auth-card-heading">
-          <div class="brand-mark small-mark">S</div>
-          <div>
-            <h2 id="authTitle">Welcome back</h2>
-            <p id="authSubtitle">Sign in to continue to your workspace.</p>
-          </div>
-        </div>
-
-        <div class="auth-tabs">
-          <button class="auth-tab active" id="loginTab" type="button">Sign in</button>
-          <button class="auth-tab" id="registerTab" type="button">Create account</button>
-        </div>
-
-        <form id="authForm">
-          <div id="registerFields" class="hidden">
-            <label for="registerName">Full name</label>
-            <input id="registerName" type="text" placeholder="Enter your full name" autocomplete="name">
-
-            <label for="registerSubjects">Subjects you manage</label>
-            <div class="subject-picker" id="registerSubjects">
-              <label><input type="checkbox" value="DS" checked><span>DS</span></label>
-              <label><input type="checkbox" value="DBMS" checked><span>DBMS</span></label>
-              <label><input type="checkbox" value="MFCS" checked><span>MFCS</span></label>
-              <label><input type="checkbox" value="FOIS" checked><span>FOIS</span></label>
-              <label><input type="checkbox" value="CN" checked><span>CN</span></label>
-              <label><input type="checkbox" value="OOPS" checked><span>OOPS</span></label>
-            </div>
-          </div>
-
-          <label for="authEmail">Email address</label>
-          <input id="authEmail" type="email" placeholder="name@example.com" autocomplete="email" required>
-
-          <label for="authPassword">Password</label>
-          <div class="password-wrap">
-            <input id="authPassword" type="password" placeholder="Enter your password" autocomplete="current-password" required minlength="6">
-            <button type="button" id="togglePassword" class="password-toggle" aria-label="Show password">Show</button>
-          </div>
-
-          <button type="submit" id="authSubmit" class="primary-button full-button">
-            Sign in <span>→</span>
-          </button>
-          <p id="authMessage" class="form-message" role="status"></p>
-        </form>
-
-        <p class="auth-footer">Secure access to your academic workspace.</p>
-      </section>
-    </main>
-    <button class="auth-theme-button" id="authThemeToggle" type="button" aria-label="Toggle theme">☾</button>
-  </div>
-
-  <div id="appScreen" class="app-shell hidden">
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-mark">S</div>
-        <span>Student<span class="brand-highlight">Hub</span></span>
-        <button id="closeSidebar" class="icon-button mobile-close" aria-label="Close menu">×</button>
-      </div>
-
-      <div class="workspace-label">WORKSPACE</div>
-      <nav class="main-nav">
-        <button class="nav-link active" data-page="overview"><span class="nav-icon">⌂</span> Overview</button>
-        <button class="nav-link" data-page="students"><span class="nav-icon">♙</span> Students</button>
-        <button class="nav-link" data-page="attendance"><span class="nav-icon">◷</span> Attendance</button>
-        <button class="nav-link" data-page="results"><span class="nav-icon">▤</span> Academic results</button>
-        <button class="nav-link" data-page="subjects"><span class="nav-icon">▦</span> Subjects</button>
-        <button class="nav-link" data-page="departments"><span class="nav-icon">⌘</span> Departments & sections</button>
-        <button class="nav-link" data-page="fees"><span class="nav-icon">₹</span> Student fees</button>
-        <button class="nav-link" data-page="timetable"><span class="nav-icon">▦</span> Timetable</button>
-      </nav>
-
-      <div class="workspace-label secondary-label">PREFERENCES</div>
-      <nav class="main-nav">
-        <button class="nav-link" data-page="settings"><span class="nav-icon">⚙</span> Settings</button>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <div class="sidebar-profile">
-          <div class="avatar" id="sidebarAvatar">U</div>
-          <div class="profile-details">
-            <strong id="sidebarName">Account</strong>
-            <span id="sidebarEmail">Signed in</span>
-          </div>
-        </div>
-        <button id="signOutButton" class="signout-button"><span>↪</span> Sign out</button>
-      </div>
-    </aside>
-
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <main class="main-area">
-      <header class="topbar">
-        <div class="topbar-left">
-          <button id="menuButton" class="icon-button menu-button" aria-label="Open menu">☰</button>
-          <div>
-            <div class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumbPage">Overview</strong></div>
-            <h2 id="topbarTitle">Overview</h2>
-          </div>
-        </div>
-        <div class="topbar-actions">
-          <span class="today-label" id="todayLabel"></span>
-          <button id="themeToggle" class="theme-button" type="button" aria-label="Toggle light and dark theme">☾</button>
-          <div class="top-avatar" id="topAvatar">U</div>
-        </div>
-      </header>
-
-      <div class="content-area">
-        <section id="page-overview" class="page active">
-          <div class="welcome-row">
-            <div>
-              <p class="section-kicker">YOUR ACADEMIC SPACE</p>
-              <h1>Good to see you, <span id="welcomeName">there</span>.</h1>
-              <p class="muted">Here is an overview of your academic workspace.</p>
-            </div>
-            <button class="primary-button" data-action="add-student">＋ Add student</button>
-          </div>
-
-          <div class="stats-grid">
-            <article class="stat-card">
-              <div class="stat-top"><span>Total students</span><span class="stat-icon lavender">♙</span></div>
-              <strong id="statStudents">0</strong>
-              <small>Student records</small>
-            </article>
-            <article class="stat-card">
-              <div class="stat-top"><span>Subjects</span><span class="stat-icon blue">▦</span></div>
-              <strong id="statSubjects">0</strong>
-              <small>Assigned subjects</small>
-            </article>
-            <article class="stat-card">
-              <div class="stat-top"><span>Attendance</span><span class="stat-icon green">◷</span></div>
-              <strong id="statAttendance">—</strong>
-              <small>Overall recorded attendance</small>
-            </article>
-            <article class="stat-card">
-              <div class="stat-top"><span>Average CGPA</span><span class="stat-icon amber">★</span></div>
-              <strong id="statCgpa">—</strong>
-              <small>Based on available results</small>
-            </article>
-          </div>
-
-          <div class="dashboard-grid">
-            <section class="panel recent-panel">
-              <div class="panel-heading">
-                <div><h3>Recently added students</h3><p>Latest student records in your workspace</p></div>
-                <button class="text-button" data-page="students">View all →</button>
-              </div>
-              <div id="recentStudents" class="recent-list">
-                <div class="empty-state compact-empty">No student records have been added yet.</div>
-              </div>
-            </section>
-
-            <section class="panel subject-summary-panel">
-              <div class="panel-heading">
-                <div><h3>Your subjects</h3><p>Quick access to subject workspaces</p></div>
-                <button class="text-button" data-page="subjects">View all →</button>
-              </div>
-              <div id="overviewSubjects" class="overview-subjects"></div>
-            </section>
-          </div>
-
-          <section class="panel quick-panel">
-            <div class="panel-heading">
-              <div><h3>Quick actions</h3><p>Move directly to the work you need</p></div>
-            </div>
-            <div class="quick-actions">
-              <button class="quick-action" data-action="add-student"><span class="quick-icon lavender">＋</span><span><strong>Add a student</strong><small>Create a student record</small></span><b>→</b></button>
-              <button class="quick-action" data-page="attendance"><span class="quick-icon green">◷</span><span><strong>Update attendance</strong><small>Record subject attendance</small></span><b>→</b></button>
-              <button class="quick-action" data-page="results"><span class="quick-icon amber">▤</span><span><strong>Enter results</strong><small>Manage semester performance</small></span><b>→</b></button>
-            </div>
-          </section>
-        </section>
-
-        <section id="page-students" class="page">
-          <div class="page-heading-row">
-            <div><p class="section-kicker">RECORD MANAGEMENT</p><h1>Students</h1><p class="muted">Maintain and manage your student records.</p></div>
-            <button class="primary-button" data-action="add-student">＋ Add student</button>
-          </div>
-          <section class="panel">
-            <div class="toolbar">
-              <div class="search-box"><span>⌕</span><input id="studentSearch" type="search" placeholder="Search by name, roll number or email..."></div>
-              <span class="record-count" id="studentCount">0 records</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>STUDENT</th><th>ROLL NUMBER</th><th>DEPARTMENT</th><th>YEAR / SECTION</th><th>SUBJECTS</th><th>ACTIONS</th></tr></thead>
-                <tbody id="studentsTableBody"></tbody>
-              </table>
-            </div>
-            <div id="studentsEmpty" class="empty-state hidden">No student records found. Add a student to get started.</div>
-          </section>
-        </section>
-                <section id="page-attendance" class="page">
-          <div class="page-heading-row">
-            <div><p class="section-kicker">CLASS MONITORING</p><h1>Attendance</h1><p class="muted">Record classes held and classes attended for each subject.</p></div>
-          </div>
-          <section class="panel">
-            <div class="toolbar attendance-toolbar">
-              <div class="field-inline"><label for="attendanceStudent">Student</label><select id="attendanceStudent"><option value="">Select student</option></select></div>
-              <div class="field-inline"><label for="attendanceSubject">Subject</label><select id="attendanceSubject"></select></div>
-            </div>
-            <div id="attendanceWorkspace" class="workspace-placeholder">Select a student and subject to manage attendance.</div>
-          </section>
-        </section>
-
-        <section id="page-results" class="page">
-          <div class="page-heading-row">
-            <div><p class="section-kicker">PERFORMANCE RECORDS</p><h1>Academic results</h1><p class="muted">Maintain semester SGPA and review academic performance.</p></div>
-          </div>
-          <section class="panel">
-            <div class="toolbar">
-              <div class="field-inline"><label for="resultsStudent">Student</label><select id="resultsStudent"><option value="">Select student</option></select></div>
-            </div>
-            <div id="resultsWorkspace" class="workspace-placeholder">Select a student to view and update academic results.</div>
-          </section>
-        </section>
-
-        <section id="page-subjects" class="page">
-          <div class="page-heading-row">
-            <div><p class="section-kicker">ACADEMIC ORGANISATION</p><h1>Subjects</h1><p class="muted">Explore your assigned subjects and their student records.</p></div>
-          </div>
-          <div id="subjectCards" class="subject-cards-grid"></div>
-          <section id="subjectDetail" class="panel subject-detail hidden"></section>
-        </section>
-
-        <section id="page-departments" class="page">
-          <div class="page-heading-row"><div><p class="section-kicker">ACADEMIC STRUCTURE</p><h1>Departments & sections</h1><p class="muted">Create departments and organise their sections. Students can then be assigned to the correct group.</p></div></div>
-          <div class="settings-grid department-forms">
-            <section class="panel settings-panel">
-              <h3>Add department</h3><p class="muted">Examples: CSE, ECE, EEE, IT, MECH.</p>
-              <form id="departmentForm" class="stack-form"><div class="form-field"><label for="departmentName">Department name</label><input id="departmentName" required maxlength="40" placeholder="e.g. CSE"></div><button class="primary-button" type="submit">Add department</button></form>
-            </section>
-            <section class="panel settings-panel">
-              <h3>Add section</h3><p class="muted">Create sections within an existing department.</p>
-              <form id="sectionForm" class="stack-form"><div class="form-field"><label for="sectionDepartment">Department</label><select id="sectionDepartment" required></select></div><div class="form-field"><label for="sectionName">Section name</label><input id="sectionName" required maxlength="20" placeholder="e.g. A"></div><button class="primary-button" type="submit">Add section</button></form>
-            </section>
-          </div>
-          <section class="panel"><div class="panel-heading"><div><h3>Department directory</h3><p>Departments and their available sections</p></div><span class="record-count" id="departmentCount">0 departments</span></div><div id="departmentDirectory" class="department-directory"></div></section>
-        </section>
-
-        <section id="page-fees" class="page">
-          <div class="page-heading-row"><div><p class="section-kicker">PAYMENT RECORDS</p><h1>Student fees</h1><p class="muted">Track total fees, instalments, payment methods and outstanding balances for each student.</p></div></div>
-          <section class="panel">
-            <div class="toolbar"><div class="field-inline"><label for="feesStudent">Select student</label><select id="feesStudent"><option value="">Select student</option></select></div></div>
-            <div id="feesWorkspace" class="workspace-placeholder">Select a student to manage fee details and payment history.</div>
-          </section>
-        </section>
-
-        <section id="page-timetable" class="page">
-          <div class="page-heading-row"><div><p class="section-kicker">WEEKLY CLASS SCHEDULE</p><h1>Timetable</h1><p class="muted">Each department and section has its own editable Monday–Saturday timetable.</p></div></div>
-          <section class="panel timetable-panel">
-            <div class="toolbar timetable-selectors">
-              <div class="field-inline"><label for="timetableDepartment">Department</label><select id="timetableDepartment"></select></div>
-              <div class="field-inline"><label for="timetableSection">Section</label><select id="timetableSection"></select></div>
-            </div>
-            <div class="timetable-meta"><span>College hours: <strong>8:15 AM – 4:00 PM</strong></span><span>Morning break: <strong>10:00–10:15 AM</strong></span><span>Lunch: <strong>12:00–1:00 PM</strong></span></div>
-            <div class="table-wrap"><table class="timetable-table"><thead id="timetableHead"></thead><tbody id="timetableBody"></tbody></table></div>
-            <p class="muted timetable-note">Click any period cell to add or update its subject, faculty and room. Leisure periods can also be assigned.</p>
-          </section>
-        </section>
-
-        <section id="page-settings" class="page">
-          <div class="page-heading-row">
-            <div><p class="section-kicker">WORKSPACE PREFERENCES</p><h1>Settings</h1><p class="muted">Manage your account and workspace preferences.</p></div>
-          </div>
-          <div class="settings-grid">
-            <section class="panel settings-panel">
-              <h3>Account information</h3>
-              <p class="muted">Your registered account details.</p>
-              <div class="settings-field"><label>Full name</label><input id="settingsName" type="text" placeholder="Your name"></div>
-              <div class="settings-field"><label>Email address</label><input id="settingsEmail" type="email" disabled></div>
-              <button id="saveProfileButton" class="primary-button">Save changes</button>
-              <p id="settingsMessage" class="form-message"></p>
-            </section>
-            <section class="panel settings-panel">
-              <h3>Subject preferences</h3>
-              <p class="muted">Choose the subjects available in your workspace.</p>
-              <div id="settingsSubjects" class="settings-subjects"></div>
-              <button id="saveSubjectsButton" class="primary-button">Save subjects</button>
-            </section>
-            <section class="panel settings-panel appearance-panel">
-              <h3>Appearance</h3>
-              <p class="muted">Choose how StudentHub looks on your device.</p>
-              <div class="appearance-options">
-                <button class="appearance-choice" data-theme-choice="light"><span>☀</span><strong>Light mode</strong></button>
-                <button class="appearance-choice" data-theme-choice="dark"><span>☾</span><strong>Dark mode</strong></button>
-              </div>
-            </section>
-          </div>
-        </section>
-      </div>
-      <footer class="app-footer">StudentHub <span>·</span> Academic Management Workspace</footer>
-    </main>
-  </div>
-
-  <div id="modalBackdrop" class="modal-backdrop hidden">
-    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-heading">
-        <div><p class="section-kicker">STUDENT RECORD</p><h2 id="modalTitle">Add student</h2></div>
-        <button id="closeModal" class="icon-button" type="button" aria-label="Close">×</button>
-      </div>
-      <form id="studentForm">
-        <input id="editingStudentId" type="hidden">
-        <div class="form-grid">
-          <div class="form-field"><label for="studentName">Full name *</label><input id="studentName" required maxlength="100" placeholder="Student full name"></div>
-          <div class="form-field"><label for="studentRoll">Roll number *</label><input id="studentRoll" required maxlength="30" placeholder="Roll number"></div>
-          <div class="form-field"><label for="studentEmail">Email address</label><input id="studentEmail" type="email" placeholder="student@example.com"></div>
-          <div class="form-field"><label for="studentPhone">Phone number</label><input id="studentPhone" type="tel" placeholder="Phone number"></div>
-          <div class="form-field"><label for="studentDepartment">Department *</label><select id="studentDepartment" required><option value="">Select department</option></select></div>
-          <div class="form-field"><label for="studentYear">Year</label><select id="studentYear"><option value="1">1st Year</option><option value="2">2nd Year</option><option value="3">3rd Year</option><option value="4">4th Year</option></select></div>
-          <div class="form-field"><label for="studentSection">Section *</label><select id="studentSection" required><option value="">Select section</option></select></div>
-        </div>
-        <div class="form-field full-field"><label>Enrolled subjects</label><div id="studentSubjects" class="subject-picker modal-subject-picker"></div></div>
-        <p id="studentFormMessage" class="form-message"></p>
-        <div class="modal-actions"><button type="button" id="cancelStudent" class="secondary-button">Cancel</button><button type="submit" id="saveStudentButton" class="primary-button">Save student</button></div>
-      </form>
-    </section>
-  </div>
-
-  <div id="scheduleModal" class="modal-backdrop hidden">
-    <section class="modal-card schedule-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
-      <div class="modal-heading"><div><p class="section-kicker">TIMETABLE ENTRY</p><h2 id="scheduleModalTitle">Edit period</h2></div><button id="closeScheduleModal" class="icon-button" type="button" aria-label="Close">×</button></div>
-      <form id="scheduleForm"><input id="scheduleDay" type="hidden"><input id="schedulePeriod" type="hidden">
-        <div class="form-grid"><div class="form-field"><label for="scheduleType">Period type</label><select id="scheduleType"><option value="class">Class</option><option value="leisure">Leisure</option></select></div><div class="form-field"><label for="scheduleSubject">Subject</label><input id="scheduleSubject" maxlength="60" placeholder="e.g. DBMS"></div><div class="form-field"><label for="scheduleFaculty">Faculty</label><input id="scheduleFaculty" maxlength="60" placeholder="Faculty name"></div><div class="form-field"><label for="scheduleRoom">Room</label><input id="scheduleRoom" maxlength="30" placeholder="Room number"></div></div>
-        <p id="scheduleMessage" class="form-message"></p><div class="modal-actions"><button type="button" id="deleteScheduleEntry" class="secondary-button danger-button">Clear period</button><button type="button" id="cancelSchedule" class="secondary-button">Cancel</button><button type="submit" class="primary-button">Save period</button></div>
-      </form>
-    </section>
-  </div>
-  <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="app.js"></script>
+    <div class="panel">
+      <h3>Your activity</h3>
+      <dl class="rows"><div><dt>Added</dt><dd id="aA">0</dd></div><div><dt>Searched</dt><dd id="aS">0</dd></div><div><dt>Deleted</dt><dd id="aD">0</dd></div></dl>
+      <svg id="spark" viewBox="0 0 200 44" preserveAspectRatio="none" aria-label="Contacts over time"></svg>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="app.js"></script>
 </body>
 </html>
