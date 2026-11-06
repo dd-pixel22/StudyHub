@@ -1,134 +1,891 @@
-const $=id=>document.getElementById(id);
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-/* ---------- Singly linked list ---------- */
-class Node{constructor(reg,name,marks,course){this.reg=reg;this.name=name;this.marks=marks;this.course=course;this.next=null}}
-let head=null;
-const toArray=()=>{const a=[];for(let p=head;p;p=p.next)a.push(p);return a};
-function addNode(reg,name,marks,course){const n=new Node(reg,name,marks,course);if(!head){head=n;return}let p=head;while(p.next)p=p.next;p.next=n}
-function findNode(reg){let p=head,steps=0;while(p){steps++;if(p.reg.toLowerCase()===reg.toLowerCase())return{p,steps};p=p.next}return{p:null,steps}}
-function deleteNode(reg){let p=head,prev=null;while(p&&p.reg.toLowerCase()!==reg.toLowerCase()){prev=p;p=p.next}
-  if(!p)return null;if(prev)prev.next=p.next;else head=p.next;return p}
-function save(){try{localStorage.setItem('srms',JSON.stringify(toArray().map(({reg,name,marks,course})=>({reg,name,marks,course}))))}catch(e){}}
-function load(){let d=null;try{d=JSON.parse(localStorage.getItem('srms'))}catch(e){}
-  if(!Array.isArray(d))d=[{reg:'21BCE1001',name:'Aarav Sharma',marks:88,course:'CSECS'},{reg:'21BCE1017',name:'Meera Reddy',marks:74.5,course:'AIML'},{reg:'21BCE1042',name:'Rohan Iyer',marks:36,course:'CSBS'},{reg:'21BCE1058',name:'Sana Khan',marks:92,course:'DS'}];
-  head=null;d.forEach(s=>addNode(s.reg,s.name,s.marks,s.course||'–'))}
+const COURSES = [
+  {name:"Computer Science and Engineering",short:"CSE",desc:"Core computing, software engineering and computer systems."},
+  {name:"CSE - Artificial Intelligence",short:"CSE-AI",desc:"Artificial intelligence, machine learning and intelligent systems."},
+  {name:"CSE - AI & Machine Learning",short:"CSE-AIML",desc:"Machine learning, deep learning and predictive analytics."},
+  {name:"CSE - Data Science",short:"CSE-DS",desc:"Data analytics, big data and statistical computing."},
+  {name:"CSE - Cyber Security",short:"CSE-CS",desc:"Network security, cryptography and digital forensics."},
+  {name:"CSE - Internet of Things",short:"CSE-IOT",desc:"Connected devices, embedded systems and smart technology."},
+  {name:"CSE - Cloud Computing",short:"CSE-CC",desc:"Cloud infrastructure, distributed systems and virtualization."},
+  {name:"Information Technology",short:"IT",desc:"Information systems, web technologies and enterprise computing."},
+  {name:"Electronics and Communication Engineering",short:"ECE",desc:"Electronics, communication systems and embedded technology."},
+  {name:"Electrical and Electronics Engineering",short:"EEE",desc:"Electrical systems, power electronics and control engineering."},
+  {name:"Mechanical Engineering",short:"ME",desc:"Manufacturing, mechanics and mechanical design."},
+  {name:"Civil Engineering",short:"CE",desc:"Structural engineering, construction and infrastructure."},
+  {name:"Artificial Intelligence and Data Science",short:"AI&DS",desc:"AI applications, intelligent data processing and analytics."}
+];
 
-/* ---------- Theme ---------- */
-function setTheme(t){document.documentElement.dataset.theme=t;
-  $('themeBtn').textContent=t==='dark'?'☀️ Light mode':'🌙 Dark mode';
-  try{localStorage.setItem('srms-theme',t)}catch(e){}}
-let theme='dark';try{theme=localStorage.getItem('srms-theme')||'dark'}catch(e){}
-setTheme(theme);
-$('themeBtn').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
+const SUBJECTS = [
+  "Data Structures","Database Management Systems",
+  "Mathematics","Computer Networks",
+  "Operating Systems","Object Oriented Programming"
+];
 
-/* ---------- UI ---------- */
-let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2400)}
-const pass=m=>m>=40?'<span class="tag pass">Pass</span>':'<span class="tag fail">Fail</span>';
-const titles={dashboard:['Welcome back, Student! 👋','Here’s what’s happening with your records.'],add:['Add Student','Create a new node at the end of the list.'],search:['Search','Find a student by registration number.'],delete:['Delete','Remove a student record from the list.'],records:['All Records','Every node, from head to NULL.'],source:['C Source','The command-line version of this project.'],exit:['Goodbye','Thanks for using the system.']};
-function go(p){location.hash=p}
-function route(){const p=titles[location.hash.slice(1)]?location.hash.slice(1):'dashboard';
-  document.querySelectorAll('.page').forEach(s=>s.classList.toggle('on',s.id===p));
-  document.querySelectorAll('nav a').forEach(a=>{a.classList.toggle('on',a.dataset.p===p);a.toggleAttribute('aria-current',a.dataset.p===p)});
-  $('ttl').textContent=titles[p][0];$('sub').textContent=titles[p][1];render();window.scrollTo(0,0)}
-addEventListener('hashchange',route);
+const STORAGE_KEY = "studyhub_students_v1";
+const SETTINGS_KEY = "studyhub_settings_v1";
 
-function render(){
-  const a=toArray(),n=a.length,sum=a.reduce((s,x)=>s+x.marks,0),top=a.reduce((b,x)=>!b||x.marks>b.marks?x:b,null);
-  $('s1').textContent=n;$('s2').textContent=n?(sum/n).toFixed(1):0;$('s3').textContent=top?top.marks:0;$('s3n').textContent=top?top.name:'No data yet';
-  $('s4').textContent=n?Math.round(a.filter(x=>x.marks>=40).length/n*100)+'%':'0%';
-  $('recent').innerHTML=n?a.slice(-4).reverse().map(x=>`<div class="row"><span class="dot"></span><div>${esc(x.name)}<small>${esc(x.reg)} · ${esc(x.course)}</small></div><em>${x.marks}</em></div>`).join(''):'<div class="empty">No students yet.</div>';
-  const bands=[['0–39',0,39.99],['40–59',40,59.99],['60–79',60,79.99],['80–100',80,100]],c=bands.map(b=>a.filter(x=>x.marks>=b[1]&&x.marks<=b[2]).length),mx=Math.max(1,...c);
-  $('bars').innerHTML=bands.map((b,i)=>`<div>${c[i]}<i style="height:${c[i]/mx*100}%"></i>${b[0]}</div>`).join('');
-  $('chain').innerHTML='<span class="head">HEAD</span><span class="arr">→</span>'+(n?a.map(x=>`<span class="nd"><b>${esc(x.reg)}</b><b>next</b></span><span class="arr">→</span>`).join(''):'')+'<span class="nul">NULL</span>';
-  $('tb').innerHTML=a.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.reg)}</td><td>${esc(x.name)}</td><td>${esc(x.course)}</td><td>${x.marks}</td><td>${pass(x.marks)}</td><td><button class="x" data-del="${esc(x.reg)}" aria-label="Delete ${esc(x.name)}">Delete</button></td></tr>`).join('');
-  $('none').hidden=n>0;$('tb').closest('.tw').hidden=n===0}
-$('tb').addEventListener('click',e=>{const r=e.target.dataset.del;if(r&&confirm('Delete record '+r+'?')){deleteNode(r);save();render();toast('Record deleted')}});
+const $ = id => document.getElementById(id);
 
-$('fAdd').addEventListener('submit',e=>{e.preventDefault();
-  const reg=$('aReg').value.trim(),name=$('aName').value.trim(),course=$('aCourse').value,m=$('aMarks').value.trim(),marks=Number(m);
-  if(!reg||!name||!course||m===''){return toast('Fill in all fields and select a course')}
-  if(isNaN(marks)||marks<0||marks>100){return toast('Marks must be between 0 and 100')}
-  if(findNode(reg).p){return toast('That registration number already exists')}
-  addNode(reg,name,marks,course);save();e.target.reset();toast('Student added');$('aReg').focus()});
-
-$('fSearch').addEventListener('submit',e=>{e.preventDefault();const q=$('qReg').value.trim();if(!q)return toast('Enter a registration number');
-  const {p,steps}=findNode(q);
-  $('qOut').innerHTML=p?`<div class="card result found"><h3>Record found</h3><div class="kv"><span>Reg. no.</span>${esc(p.reg)}<span>Name</span>${esc(p.name)}<span>Course</span>${esc(p.course)}<span>Marks</span>${p.marks} ${pass(p.marks)}<span>Position</span>Node ${steps}, found after ${steps} comparison${steps>1?'s':''}</div></div>`
-  :`<div class="card result miss"><h3>No match</h3><p class="panel-note" style="margin:0">No student has the registration number “${esc(q)}”. All ${steps} node${steps===1?'':'s'} were checked.</p></div>`});
-
-$('fDel').addEventListener('submit',e=>{e.preventDefault();const q=$('dReg').value.trim();if(!q)return toast('Enter a registration number');
-  const d=deleteNode(q);if(d){save();$('dOut').innerHTML=`<div class="card result found"><h3>Record deleted</h3><p class="panel-note" style="margin:0">${esc(d.name)} (${esc(d.reg)}) was unlinked from the list.</p></div>`;e.target.reset();toast('Record deleted')}
-  else $('dOut').innerHTML=`<div class="card result miss"><h3>Nothing deleted</h3><p class="panel-note" style="margin:0">No student has the registration number “${esc(q)}”.</p></div>`});
-
-$('code').textContent=`#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-struct Student {
-    char reg[20];
-    char name[50];
-    char course[10];   /* CSECS, AIML, CSBS or DS */
-    float marks;
-    struct Student *next;
-};
-struct Student *head = NULL;
-
-void addStudent() {
-    struct Student *n = malloc(sizeof(struct Student)), *p;
-    printf("Reg no: ");  scanf("%19s", n->reg);
-    printf("Name: ");    scanf(" %49[^\\n]", n->name);
-    printf("Course (CSECS/AIML/CSBS/DS): "); scanf("%9s", n->course);
-    printf("Marks: ");   scanf("%f", &n->marks);
-    n->next = NULL;
-    if (!head) { head = n; return; }
-    for (p = head; p->next; p = p->next);
-    p->next = n;
+function money(value) {
+  return "₹" + Number(value || 0).toLocaleString("en-IN",{
+    maximumFractionDigits:0
+  });
 }
 
-void searchStudent() {
-    char r[20]; struct Student *p = head;
-    printf("Reg no: "); scanf("%19s", r);
-    for (; p; p = p->next)
-        if (strcmp(p->reg, r) == 0) {
-            printf("%s | %s | %s | %.1f\\n", p->reg, p->name, p->course, p->marks);
-            return;
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  })[char]);
+}
+
+function initials(name) {
+  return String(name || "ST").trim().split(/\s+/)
+    .slice(0,2).map(part=>part[0] || "").join("").toUpperCase();
+}
+
+function attendancePercentage(record) {
+  const held = Number(record.held || 0);
+  return held ? Math.round(Number(record.attended || 0) / held * 100) : 0;
+}
+
+function gradeFromMarks(marks) {
+  const m = Number(marks);
+  if(m >= 90) return "A+";
+  if(m >= 80) return "A";
+  if(m >= 70) return "B";
+  if(m >= 60) return "C";
+  if(m >= 50) return "D";
+  return "F";
+}
+
+function statusFromFees(student) {
+  if(Number(student.paidFee) >= Number(student.totalFee)) return "Paid";
+  if(Number(student.paidFee) > 0) return "Partial";
+  return "Pending";
+}
+
+function makeId() {
+  return "ST" + Date.now().toString(36) +
+    Math.random().toString(36).slice(2,6);
+}
+
+function createAttendance(seed = 0) {
+  const result = {};
+  SUBJECTS.forEach((subject,index) => {
+    const held = 40 + index * 2;
+    const attended = Math.max(0,Math.min(held,
+      Math.round(held * (seed ? 0.68 + ((seed + index) % 5)*0.065 : 0.9))
+    ));
+    result[subject] = {held,attended};
+  });
+  return result;
+}
+
+function sampleStudents() {
+  const names = [
+    ["Aarav Sharma","251FA19001","CSE", "1st Year",91,9.1,9.0],
+    ["Ananya Reddy","251FA19002","CSE-AI", "1st Year",87,8.8,8.7],
+    ["Rahul Kumar","241FA19003","CSE-DS", "2nd Year",78,8.0,7.9],
+    ["Priya Nair","241FA19004","IT", "2nd Year",94,9.5,9.3],
+    ["Arjun Rao","231FA19005","CSE-CS", "3rd Year",68,7.1,7.3],
+    ["Sneha Patel","231FA19006","ECE", "3rd Year",83,8.5,8.4],
+    ["Karthik Reddy","221FA19007","CSE-AIML", "4th Year",88,9.0,8.9],
+    ["Meera Das","221FA19008","EEE", "4th Year",73,7.6,7.8],
+    ["Vikram Singh","251FA19009","ME", "1st Year",65,7.0,7.1],
+    ["Diya Sharma","241FA19010","CSE-IOT", "2nd Year",96,9.7,9.6]
+  ];
+
+  return names.map((n,i) => ({
+    id:makeId(),
+    name:n[0],
+    reg:n[1],
+    course:n[2],
+    year:n[3],
+    marks:n[4],
+    sgpa:n[5],
+    cgpa:n[6],
+    email:n[0].toLowerCase().replace(" ",".")+"@student.edu",
+    phone:"9"+String(876543210+i).slice(1),
+    gender:i%2 ? "Female":"Male",
+    dob:"",
+    semester:String((parseInt(n[3][0])-1)*2+1),
+    section:["A","B","C"][i%3],
+    totalFee:100000,
+    paidFee:[100000,75000,50000,100000,25000,85000,100000,50000,0,90000][i],
+    attendance:createAttendance(i+1),
+    payments:[]
+  }));
+}
+
+let students = loadStudents();
+let performanceChart = null;
+let attendanceChart = null;
+let courseChart = null;
+let toastTimer;
+
+function loadStudents() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(Array.isArray(stored)) return stored;
+  } catch(error) {
+    console.error("Could not load student records:",error);
+  }
+  const initial = sampleStudents();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(initial));
+  return initial;
+}
+
+function saveStudents() {
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(students));
+}
+
+function persistAndRefresh() {
+  saveStudents();
+  refreshAll();
+}
+
+function showToast(message) {
+  $("toastMessage").textContent = message;
+  $("toast").classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>$("toast").classList.remove("show"),2600);
+}
+
+function refreshIcons() {
+  if(window.lucide) window.lucide.createIcons();
+}
+
+function showPage(page) {
+  const target = $("page-"+page);
+  if(!target) return;
+
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  target.classList.add("active");
+
+  document.querySelectorAll(".nav-link").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.page===page);
+  });
+
+  const names = {
+    dashboard:"Dashboard",students:"Student Records",
+    attendance:"Attendance",academics:"Academic Records",
+    fees:"Fee Management",courses:"Courses & Branches",
+    reports:"Reports",settings:"Settings"
+  };
+
+  $("breadcrumb").textContent = names[page] || page;
+
+  closeSidebar();
+  refreshAll();
+  refreshIcons();
+}
+
+window.showPage = showPage;
+
+function openSidebar() {
+  $("sidebar").classList.add("open");
+  $("mobileOverlay").classList.add("show");
+}
+
+function closeSidebar() {
+  $("sidebar").classList.remove("open");
+  $("mobileOverlay").classList.remove("show");
+}
+
+function openModal(id) {
+  $(id).classList.add("open");
+  refreshIcons();
+}
+
+function closeModal(id) {
+  $(id).classList.remove("open");
+}
+
+window.closeModal = closeModal;
+
+function populateCourseOptions() {
+  const options = COURSES.map(c=>
+    `<option value="${escapeHTML(c.short)}">${escapeHTML(c.name)}</option>`
+  ).join("");
+
+  $("sCourse").innerHTML=options;
+  $("courseFilter").innerHTML='<option value="">All Courses</option>'+options;
+}
+
+function populateSubjectOptions() {
+  $("attendanceSubject").innerHTML =
+    '<option value="">All Subjects</option>' +
+    SUBJECTS.map(s=>`<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join("");
+}
+
+function studentCell(student) {
+  return `<div class="student-cell">
+    <div class="student-avatar">${escapeHTML(initials(student.name))}</div>
+    <div><strong>${escapeHTML(student.name)}</strong>
+    <span>${escapeHTML(student.email || "No email provided")}</span></div>
+  </div>`;
+}
+
+function attendanceBadge(value) {
+  const cls=value>=75?"good":"danger";
+  return `<span class="status ${cls}">${value}%</span>`;
+}
+
+function feeBadge(student) {
+  const status=statusFromFees(student);
+  return `<span class="status ${status.toLowerCase()}">${status}</span>`;
+}
+
+function getAttendanceAverage(student) {
+  const records=Object.values(student.attendance || {});
+  if(!records.length) return 0;
+  const held=records.reduce((sum,r)=>sum+Number(r.held||0),0);
+  const attended=records.reduce((sum,r)=>sum+Number(r.attended||0),0);
+  return held?Math.round(attended/held*100):0;
+}
+
+function averageAttendance() {
+  if(!students.length) return 0;
+  return Math.round(students.reduce((sum,s)=>sum+getAttendanceAverage(s),0)/students.length);
+}
+
+function getTotals() {
+  return {
+    totalFee:students.reduce((s,x)=>s+Number(x.totalFee||0),0),
+    paid:students.reduce((s,x)=>s+Number(x.paidFee||0),0),
+    pending:students.reduce((s,x)=>s+Math.max(0,Number(x.totalFee||0)-Number(x.paidFee||0)),0),
+    marks:students.length?students.reduce((s,x)=>s+Number(x.marks||0),0)/students.length:0,
+    cgpa:students.length?students.reduce((s,x)=>s+Number(x.cgpa||0),0)/students.length:0
+  };
+}
+
+// DASHBOARD
+
+function renderDashboard() {
+  const t=getTotals();
+  const avg=averageAttendance();
+
+  $("totalStudents").textContent=students.length;
+  $("averageAttendance").textContent=avg+"%";
+  $("feesCollected").textContent=money(t.paid);
+  $("pendingFees").textContent=money(t.pending);
+  $("chartAttendance").textContent=avg+"%";
+
+  const good=students.filter(s=>getAttendanceAverage(s)>=75).length;
+  $("goodCount").textContent=good;
+  $("lowCount").textContent=students.length-good;
+
+  $("recentStudents").innerHTML=students.slice(-5).reverse().map(s=>`
+    <tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.reg)}</td>
+      <td>${escapeHTML(s.course)}</td>
+      <td>${escapeHTML(s.year)}</td>
+      <td>${attendanceBadge(getAttendanceAverage(s))}</td>
+      <td><span class="status good">Active</span></td>
+    </tr>`).join("") || emptyRow(6);
+
+  renderCharts();
+}
+
+function renderCharts() {
+  if(!window.Chart) return;
+
+  const perf=$("performanceChart");
+  const att=$("attendanceChart");
+
+  if(perf) {
+    const ctx=perf.getContext("2d");
+    const marks=students.map(s=>Number(s.marks||0));
+    if(performanceChart) performanceChart.destroy();
+    performanceChart=new Chart(ctx,{
+      type:"bar",
+      data:{
+        labels:students.map(s=>s.name.split(" ")[0]),
+        datasets:[{
+          label:"Marks",
+          data:marks,
+          backgroundColor:"#9a81ec",
+          borderRadius:6,
+          maxBarThickness:24
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{beginAtZero:true,max:100,grid:{color:"#f1eff6"},ticks:{font:{size:10}}},
+          x:{grid:{display:false},ticks:{font:{size:9}}}
         }
-    printf("Not found.\\n");
-}
+      }
+    });
+  }
 
-void deleteStudent() {
-    char r[20]; struct Student *p = head, *prev = NULL;
-    printf("Reg no: "); scanf("%19s", r);
-    while (p && strcmp(p->reg, r) != 0) { prev = p; p = p->next; }
-    if (!p) { printf("Not found.\\n"); return; }
-    if (prev) prev->next = p->next; else head = p->next;
-    free(p);
-    printf("Deleted.\\n");
-}
+  if(att) {
+    const ctx=att.getContext("2d");
+    const good=students.filter(s=>getAttendanceAverage(s)>=75).length;
+    if(attendanceChart) attendanceChart.destroy();
+    attendanceChart=new Chart(ctx,{
+      type:"doughnut",
+      data:{
+        labels:["Good attendance","Below 75%"],
+        datasets:[{
+          data:[good,Math.max(0,students.length-good)],
+          backgroundColor:["#7655dc","#eeeaf5"],
+          borderWidth:0,
+          hoverOffset:4
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        cutout:"78%",
+        plugins:{legend:{display:false}}
+      }
+    });
+  }
 
-void displayAll() {
-    struct Student *p = head;
-    if (!p) { printf("List is empty.\\n"); return; }
-    for (; p; p = p->next)
-        printf("%s | %s | %s | %.1f\\n", p->reg, p->name, p->course, p->marks);
-}
-
-int main() {
-    int c;
-    do {
-        printf("\\n1.Add 2.Search 3.Delete 4.Display 5.Exit\\nChoice: ");
-        scanf("%d", &c);
-        switch (c) {
-            case 1: addStudent();    break;
-            case 2: searchStudent(); break;
-            case 3: deleteStudent(); break;
-            case 4: displayAll();    break;
-            case 5: printf("Goodbye!\\n"); break;
-            default: printf("Invalid choice.\\n");
+  const courseCanvas=$("courseChart");
+  if(courseCanvas && $("page-reports").classList.contains("active")) {
+    const counts=COURSES.map(c=>students.filter(s=>s.course===c.short).length);
+    if(courseChart) courseChart.destroy();
+    courseChart=new Chart(courseCanvas.getContext("2d"),{
+      type:"bar",
+      data:{
+        labels:COURSES.map(c=>c.short),
+        datasets:[{
+          label:"Students",
+          data:counts,
+          backgroundColor:"#9a81ec",
+          borderRadius:5,
+          maxBarThickness:35
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{beginAtZero:true,ticks:{precision:0},grid:{color:"#f1eff6"}},
+          x:{grid:{display:false},ticks:{font:{size:9}}}
         }
-    } while (c != 5);
-    return 0;
-}`;
+      }
+    });
+  }
+}
 
-load();route();
+// STUDENT MANAGEMENT
+
+function renderStudents() {
+  const query=$("studentSearch").value.trim().toLowerCase();
+  const course=$("courseFilter").value;
+  const year=$("yearFilter").value;
+
+  const filtered=students.filter(s=>
+    (s.name.toLowerCase().includes(query)||s.reg.toLowerCase().includes(query)) &&
+    (!course||s.course===course) &&
+    (!year||s.year===year)
+  );
+
+  $("studentCountLabel").textContent=filtered.length+" student records";
+
+  $("studentsTable").innerHTML=filtered.map(s=>`
+    <tr>
+      <td>${studentCell(s)}</td>
+      <td><strong>${escapeHTML(s.reg)}</strong></td>
+      <td>${escapeHTML(s.course)}</td>
+      <td>${escapeHTML(s.year)}</td>
+      <td>${escapeHTML(s.phone||"—")}</td>
+      <td><div class="action-group">
+        <button class="action-btn" title="View profile" onclick="viewStudent('${s.id}')"><i data-lucide="eye"></i></button>
+        <button class="action-btn" title="Edit" onclick="editStudent('${s.id}')"><i data-lucide="pencil"></i></button>
+        <button class="action-btn delete" title="Delete" onclick="deleteStudent('${s.id}')"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`).join("") || emptyRow(6,"No matching students found");
+
+  refreshIcons();
+}
+
+function resetFilters() {
+  $("studentSearch").value="";
+  $("courseFilter").value="";
+  $("yearFilter").value="";
+  renderStudents();
+}
+
+window.resetFilters=resetFilters;
+
+function openStudentModal(id=null) {
+  $("studentForm").reset();
+  $("editId").value="";
+  $("sTotalFee").value=100000;
+  $("sPaidFee").value=0;
+  $("sMarks").value=0;
+  $("sSGPA").value=0;
+  $("sCGPA").value=0;
+  $("studentModalTitle").textContent=id?"Edit Student":"Add New Student";
+
+  if(id) {
+    const s=students.find(x=>x.id===id);
+    if(!s) return;
+    $("editId").value=s.id;
+    $("sName").value=s.name;
+    $("sReg").value=s.reg;
+    $("sEmail").value=s.email||"";
+    $("sPhone").value=s.phone||"";
+    $("sGender").value=s.gender||"Not specified";
+    $("sDob").value=s.dob||"";
+    $("sCourse").value=s.course;
+    $("sYear").value=s.year;
+    $("sSemester").value=s.semester||"1";
+    $("sSection").value=s.section||"";
+    $("sMarks").value=s.marks;
+    $("sSGPA").value=s.sgpa;
+    $("sCGPA").value=s.cgpa;
+    $("sTotalFee").value=s.totalFee;
+    $("sPaidFee").value=s.paidFee;
+  }
+
+  openModal("studentModal");
+}
+
+window.openStudentModal=openStudentModal;
+
+$("studentForm").addEventListener("submit",e=>{
+  e.preventDefault();
+
+  const id=$("editId").value;
+  const reg=$("sReg").value.trim();
+  const existing=students.find(s=>s.reg.toLowerCase()===reg.toLowerCase()&&s.id!==id);
+
+  if(existing) {
+    showToast("This registration number already exists.");
+    return;
+  }
+
+  const totalFee=Number($("sTotalFee").value);
+  const paidFee=Number($("sPaidFee").value);
+  const marks=Number($("sMarks").value);
+  const sgpa=Number($("sSGPA").value);
+  const cgpa=Number($("sCGPA").value);
+
+  if(totalFee<0||paidFee<0||paidFee>totalFee) {
+    showToast("Please check the fee amounts.");
+    return;
+  }
+
+  if(marks<0||marks>100||sgpa<0||sgpa>10||cgpa<0||cgpa>10) {
+    showToast("Please enter valid academic values.");
+    return;
+  }
+
+  const record={
+    id:id||makeId(),
+    name:$("sName").value.trim(),
+    reg,
+    email:$("sEmail").value.trim(),
+    phone:$("sPhone").value.trim(),
+    gender:$("sGender").value,
+    dob:$("sDob").value,
+    course:$("sCourse").value,
+    year:$("sYear").value,
+    semester:$("sSemester").value,
+    section:$("sSection").value.trim(),
+    marks,sgpa,cgpa,totalFee,paidFee,
+    attendance:id?students.find(s=>s.id===id).attendance:createAttendance(),
+    payments:id?students.find(s=>s.id===id).payments||[]:[]
+  };
+
+  if(id) {
+    students=students.map(s=>s.id===id?record:s);
+    showToast("Student record updated successfully.");
+  } else {
+    students.push(record);
+    showToast("New student registered successfully.");
+  }
+
+  closeModal("studentModal");
+  persistAndRefresh();
+});
+
+function editStudent(id) {
+  openStudentModal(id);
+}
+window.editStudent=editStudent;
+
+function deleteStudent(id) {
+  const s=students.find(x=>x.id===id);
+  if(!s) return;
+  if(!confirm("Delete the student record of "+s.name+"? This action cannot be undone.")) return;
+  students=students.filter(x=>x.id!==id);
+  persistAndRefresh();
+  showToast("Student record deleted.");
+}
+window.deleteStudent=deleteStudent;
+
+function viewStudent(id) {
+  const s=students.find(x=>x.id===id);
+  if(!s) return;
+
+  $("profileContent").innerHTML=`
+    <div class="profile-hero">
+      <div class="student-avatar">${escapeHTML(initials(s.name))}</div>
+      <div><h3>${escapeHTML(s.name)}</h3>
+      <p>${escapeHTML(s.reg)} · ${escapeHTML(s.course)}</p></div>
+    </div>
+    <div class="profile-section">Personal Information</div>
+    <div class="profile-details">
+      ${detail("Email",s.email||"Not provided")}
+      ${detail("Phone",s.phone||"Not provided")}
+      ${detail("Gender",s.gender)}
+      ${detail("Date of Birth",s.dob||"Not provided")}
+    </div>
+    <div class="profile-section">Academic Information</div>
+    <div class="profile-details">
+      ${detail("Course",s.course)}
+      ${detail("Year",s.year)}
+      ${detail("Semester",s.semester)}
+      ${detail("Section",s.section||"—")}
+      ${detail("Marks",s.marks+"/100")}
+      ${detail("Grade",gradeFromMarks(s.marks))}
+      ${detail("SGPA",Number(s.sgpa).toFixed(2))}
+      ${detail("CGPA",Number(s.cgpa).toFixed(2))}
+      ${detail("Attendance",getAttendanceAverage(s)+"%")}
+    </div>
+    <div class="profile-section">Fee Information</div>
+    <div class="profile-details">
+      ${detail("Total Fees",money(s.totalFee))}
+      ${detail("Paid Fees",money(s.paidFee))}
+      ${detail("Balance",money(Math.max(0,s.totalFee-s.paidFee)))}
+      ${detail("Payment Status",statusFromFees(s))}
+    </div>
+    <div class="modal-actions">
+      <button class="outline-button" onclick="closeModal('profileModal')">Close</button>
+      <button class="primary-button" onclick="closeModal('profileModal');editStudent('${s.id}')">Edit Record</button>
+    </div>`;
+  openModal("profileModal");
+}
+window.viewStudent=viewStudent;
+
+function detail(label,value) {
+  return `<div class="detail-item"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong></div>`;
+}
+
+// ATTENDANCE MANAGEMENT
+
+function renderAttendance() {
+  const query=$("attendanceSearch").value.toLowerCase().trim();
+  const subject=$("attendanceSubject").value;
+  let rows=[];
+
+  students.forEach(s=>{
+    Object.entries(s.attendance||{}).forEach(([sub,record])=>{
+      if((!subject||sub===subject) &&
+         (s.name.toLowerCase().includes(query)||s.reg.toLowerCase().includes(query))) {
+        rows.push({s,sub,record});
+      }
+    });
+  });
+
+  $("attendanceTable").innerHTML=rows.map(({s,sub,record})=>{
+    const pct=attendancePercentage(record);
+    return `<tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(sub)}</td>
+      <td>${record.held}</td>
+      <td>${record.attended}</td>
+      <td>${attendanceBadge(pct)}</td>
+      <td><button class="action-btn" title="Update attendance" onclick="editAttendance('${s.id}','${encodeURIComponent(sub)}')"><i data-lucide="pencil"></i></button></td>
+    </tr>`;
+  }).join("")||emptyRow(6,"No attendance records found");
+
+  const avg=averageAttendance();
+  $("attAverage").textContent=avg+"%";
+  $("attGood").textContent=students.filter(s=>getAttendanceAverage(s)>=75).length;
+  $("attLow").textContent=students.filter(s=>getAttendanceAverage(s)<75).length;
+  refreshIcons();
+}
+
+function editAttendance(id,encodedSubject) {
+  const s=students.find(x=>x.id===id);
+  const subject=decodeURIComponent(encodedSubject);
+  if(!s) return;
+  const record=s.attendance[subject]||{held:0,attended:0};
+  $("attStudentId").value=id;
+  $("attSubject").value=subject;
+  $("attSubjectDisplay").value=s.name+" — "+subject;
+  $("attHeld").value=record.held;
+  $("attAttended").value=record.attended;
+  openModal("attendanceModal");
+}
+window.editAttendance=editAttendance;
+
+$("attendanceForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const id=$("attStudentId").value;
+  const subject=$("attSubject").value;
+  const held=Number($("attHeld").value);
+  const attended=Number($("attAttended").value);
+
+  if(held<0||attended<0||attended>held) {
+    showToast("Attended classes cannot exceed classes held.");
+    return;
+  }
+
+  const s=students.find(x=>x.id===id);
+  if(!s) return;
+  s.attendance[subject]={held,attended};
+  closeModal("attendanceModal");
+  persistAndRefresh();
+  showToast("Attendance updated successfully.");
+});
+
+// ACADEMICS
+
+function renderAcademics() {
+  const query=$("academicSearch").value.toLowerCase().trim();
+  const filtered=students.filter(s=>
+    s.name.toLowerCase().includes(query)||s.reg.toLowerCase().includes(query)
+  );
+
+  $("academicsTable").innerHTML=filtered.map(s=>`
+    <tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.reg)}</td>
+      <td>${escapeHTML(s.course)}</td>
+      <td><strong>${s.marks}/100</strong></td>
+      <td><span class="status ${s.marks>=50?"good":"danger"}">${gradeFromMarks(s.marks)}</span></td>
+      <td>${Number(s.sgpa).toFixed(2)}</td>
+      <td>${Number(s.cgpa).toFixed(2)}</td>
+      <td><button class="action-btn" title="Update academic record" onclick="editStudent('${s.id}')"><i data-lucide="pencil"></i></button></td>
+    </tr>`).join("")||emptyRow(8);
+
+  const t=getTotals();
+  $("avgMarks").textContent=t.marks.toFixed(1);
+  $("avgCGPA").textContent=t.cgpa.toFixed(2);
+  $("evaluatedCount").textContent=students.length;
+  refreshIcons();
+}
+window.renderAcademics=renderAcademics;
+
+// FEES
+
+function renderFees() {
+  const query=$("feeSearch").value.toLowerCase().trim();
+  const filter=$("feeFilter").value;
+  const filtered=students.filter(s=>
+    (s.name.toLowerCase().includes(query)||s.reg.toLowerCase().includes(query)) &&
+    (!filter||statusFromFees(s)===filter)
+  );
+
+  $("feesTable").innerHTML=filtered.map(s=>`
+    <tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.reg)}</td>
+      <td>${money(s.totalFee)}</td>
+      <td><strong>${money(s.paidFee)}</strong></td>
+      <td>${money(Math.max(0,s.totalFee-s.paidFee))}</td>
+      <td>${feeBadge(s)}</td>
+      <td><button class="action-btn" title="Record payment" onclick="openFeeModal('${s.id}')"><i data-lucide="plus"></i></button></td>
+    </tr>`).join("")||emptyRow(7);
+
+  const t=getTotals();
+  $("totalFeeAmount").textContent=money(t.totalFee);
+  $("receivedFeeAmount").textContent=money(t.paid);
+  $("outstandingFeeAmount").textContent=money(t.pending);
+  refreshIcons();
+}
+
+function openFeeModal(id) {
+  const s=students.find(x=>x.id===id);
+  if(!s) return;
+  const balance=Math.max(0,s.totalFee-s.paidFee);
+  $("feeStudentId").value=id;
+  $("feeStudentInfo").innerHTML=`
+    <strong>${escapeHTML(s.name)}</strong><br>
+    ${escapeHTML(s.reg)}<br>
+    Total: ${money(s.totalFee)} · Paid: ${money(s.paidFee)} ·
+    <strong>Balance: ${money(balance)}</strong>`;
+  $("feePayment").value="";
+  $("feePayment").max=balance;
+  $("feePayment").placeholder="Maximum "+balance;
+  $("feeDate").value=new Date().toISOString().slice(0,10);
+  $("feeReference").value="";
+  openModal("feeModal");
+}
+window.openFeeModal=openFeeModal;
+
+$("feeForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const id=$("feeStudentId").value;
+  const amount=Number($("feePayment").value);
+  const s=students.find(x=>x.id===id);
+  if(!s||amount<=0) {
+    showToast("Enter a valid payment amount.");
+    return;
+  }
+  const balance=Math.max(0,s.totalFee-s.paidFee);
+  if(amount>balance) {
+    showToast("Payment exceeds the outstanding balance.");
+    return;
+  }
+
+  s.paidFee=Number(s.paidFee)+amount;
+  s.payments=s.payments||[];
+  s.payments.push({
+    amount,
+    date:$("feeDate").value,
+    reference:$("feeReference").value.trim()
+  });
+
+  closeModal("feeModal");
+  persistAndRefresh();
+  showToast("Payment recorded successfully.");
+});
+
+// COURSES
+
+function renderCourses() {
+  $("courseGrid").innerHTML=COURSES.map(c=>{
+    const count=students.filter(s=>s.course===c.short).length;
+    return `<div class="course-card">
+      <div class="course-symbol"><i data-lucide="graduation-cap"></i></div>
+      <h3>${escapeHTML(c.name)}</h3>
+      <p>${escapeHTML(c.desc)}</p>
+      <div class="course-meta"><span>Enrolled students</span><strong>${count}</strong></div>
+    </div>`;
+  }).join("");
+  refreshIcons();
+}
+
+// REPORTS
+
+function renderReports() {
+  const t=getTotals();
+  $("reportStudents").textContent=students.length;
+  $("reportMarks").textContent=t.marks.toFixed(1);
+  $("reportFees").textContent=money(t.paid);
+  $("reportAttendance").textContent=averageAttendance()+"%";
+  renderCharts();
+}
+
+// SETTINGS
+
+function saveSettings() {
+  const settings={
+    institution:$("institutionName").value.trim(),
+    year:$("academicYear").value.trim()
+  };
+  localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
+  showToast("Portal settings saved.");
+}
+
+function loadSettings() {
+  try {
+    const s=JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    if(s) {
+      $("institutionName").value=s.institution||"STUDYHUB Academic Institution";
+      $("academicYear").value=s.year||"2026-27";
+    }
+  } catch(e) {}
+  $("settingsStudentCount").textContent=students.length;
+}
+
+window.saveSettings=saveSettings;
+
+function exportCSV() {
+  if(!students.length) {
+    showToast("There are no student records to export.");
+    return;
+  }
+
+  const columns=[
+    "Name","Registration Number","Email","Phone","Gender",
+    "Course","Year","Semester","Section","Marks","Grade",
+    "SGPA","CGPA","Attendance (%)","Total Fees","Paid Fees",
+    "Balance","Fee Status"
+  ];
+
+  const rows=students.map(s=>[
+    s.name,s.reg,s.email,s.phone,s.gender,s.course,s.year,
+    s.semester,s.section,s.marks,gradeFromMarks(s.marks),
+    s.sgpa,s.cgpa,getAttendanceAverage(s),s.totalFee,s.paidFee,
+    Math.max(0,s.totalFee-s.paidFee),statusFromFees(s)
+  ]);
+
+  const csv=[columns,...rows].map(row=>
+    row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")
+  ).join("\r\n");
+
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="STUDYHUB_Student_Records.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("Student data exported successfully.");
+}
+window.exportCSV=exportCSV;
+
+function resetData() {
+  if(!confirm("Restore the original sample records? Your current student data will be replaced.")) return;
+  students=sampleStudents();
+  persistAndRefresh();
+  showToast("Sample records restored.");
+}
+window.resetData=resetData;
+
+function emptyRow(columns,message="No records available") {
+  return `<tr><td colspan="${columns}" style="text-align:center;padding:30px;color:#aaa6b5">${escapeHTML(message)}</td></tr>`;
+}
+
+// GLOBAL REFRESH
+
+function refreshAll() {
+  renderDashboard();
+  renderStudents();
+  renderAttendance();
+  renderAcademics();
+  renderFees();
+  renderCourses();
+  renderReports();
+  loadSettings();
+  refreshIcons();
+}
+
+function initializeApp() {
+  populateCourseOptions();
+  populateSubjectOptions();
+
+  $("currentDate").textContent=new Intl.DateTimeFormat("en-IN",{
+    day:"numeric",month:"short",year:"numeric"
+  }).format(new Date());
+
+  document.querySelectorAll(".nav-link").forEach(btn=>{
+    btn.addEventListener("click",()=>showPage(btn.dataset.page));
+  });
+
+  $("menuToggle").addEventListener("click",openSidebar);
+  $("closeSidebar").addEventListener("click",closeSidebar);
+  $("mobileOverlay").addEventListener("click",closeSidebar);
+
+  document.querySelectorAll(".modal-overlay").forEach(modal=>{
+    modal.addEventListener("click",e=>{
+      if(e.target===modal) modal.classList.remove("open");
+    });
+  });
+
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") {
+      document.querySelectorAll(".modal-overlay.open").forEach(m=>m.classList.remove("open"));
+      closeSidebar();
+    }
+  });
+
+  loadSettings();
+  refreshAll();
+  showPage("dashboard");
+}
+
+initializeApp();
