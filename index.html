@@ -1,116 +1,341 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Student Record Management System</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#7655dc">
+  <title>STUDYHUB | Student Management Portal</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-<div class="shell">
-  <aside>
-    <div class="logo" aria-hidden="true">🎓</div>
-    <nav aria-label="Main">
-      <a href="#dashboard" data-p="dashboard"><i>▦</i>Dashboard</a>
-      <a href="#add" data-p="add"><i>＋</i>Add Student</a>
-      <a href="#search" data-p="search"><i>⌕</i>Search</a>
-      <a href="#delete" data-p="delete"><i>✕</i>Delete</a>
-      <a href="#records" data-p="records"><i>☰</i>All Records</a>
-      <a href="#source" data-p="source"><i>{ }</i>C Source</a>
-      <a href="#exit" data-p="exit"><i>⏻</i>Exit</a>
+
+<div class="app-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><i data-lucide="graduation-cap"></i></div>
+      <div>
+        <h2>STUDYHUB</h2>
+        <span>ACADEMIC PORTAL</span>
+      </div>
+      <button class="mobile-close" id="closeSidebar"><i data-lucide="x"></i></button>
+    </div>
+
+    <div class="side-label">MAIN MENU</div>
+
+    <nav class="navigation">
+      <button class="nav-link active" data-page="dashboard">
+        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+      </button>
+      <button class="nav-link" data-page="students">
+        <i data-lucide="users"></i><span>Student Records</span>
+      </button>
+      <button class="nav-link" data-page="attendance">
+        <i data-lucide="calendar-check"></i><span>Attendance</span>
+      </button>
+      <button class="nav-link" data-page="academics">
+        <i data-lucide="book-open"></i><span>Academic Records</span>
+      </button>
+      <button class="nav-link" data-page="fees">
+        <i data-lucide="wallet"></i><span>Fee Management</span>
+      </button>
+      <button class="nav-link" data-page="courses">
+        <i data-lucide="graduation-cap"></i><span>Courses & Branches</span>
+      </button>
     </nav>
-    <div class="quote"><b>“</b>Every node points to the next one.</div>
+
+    <div class="side-label secondary-label">MANAGEMENT</div>
+    <nav class="navigation">
+      <button class="nav-link" data-page="reports">
+        <i data-lucide="chart-no-axes-combined"></i><span>Reports</span>
+      </button>
+      <button class="nav-link" data-page="settings">
+        <i data-lucide="settings"></i><span>Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="support-card">
+        <div class="support-icon"><i data-lucide="headset"></i></div>
+        <h4>Academic Support</h4>
+        <p>Manage your academic information in one place.</p>
+        <button onclick="showPage('settings')">View settings <i data-lucide="arrow-right"></i></button>
+      </div>
+      <div class="profile-mini">
+        <div class="avatar">AD</div>
+        <div class="profile-info">
+          <strong>Administrator</strong>
+          <span>Academic Office</span>
+        </div>
+        <i data-lucide="more-horizontal"></i>
+      </div>
+    </div>
   </aside>
 
-  <main>
-    <header class="top">
-      <div><h2 id="ttl">Welcome back, Student! 👋</h2><p id="sub">Here’s what’s happening with your records.</p></div>
-            <div class="hdr-r">
-        <button class="pill" id="themeBtn" type="button" aria-label="Switch theme">☀️ Light mode</button>
-        <div class="pill">Data Structures · Mini-Project</div>
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-button menu-toggle" id="menuToggle"><i data-lucide="menu"></i></button>
+        <div>
+          <div class="breadcrumb">STUDYHUB <span>/</span> <strong id="breadcrumb">Dashboard</strong></div>
+          <p class="welcome-line">Welcome back, Administrator</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="date-display"><i data-lucide="calendar-days"></i><span id="currentDate"></span></div>
+        <button class="icon-button" title="Notifications" onclick="showToast('You are all caught up!')"><i data-lucide="bell"></i><span class="notification-dot"></span></button>
+        <div class="top-avatar">AD</div>
       </div>
     </header>
 
-    <section class="page" id="dashboard">
-      <h1 class="hero">Your records.<br><span>Organized.</span></h1>
-      <p class="sub">Add, find, remove and list students, all stored in a singly linked list.</p>
-      <div class="grid stats">
-        <div class="card stat" style="--c:#7c5cff"><div class="ico">🎓</div><small>Students</small><strong id="s1">0</strong><small>In the list</small></div>
-        <div class="card stat" style="--c:#3b82f6"><div class="ico">📊</div><small>Average marks</small><strong id="s2">0</strong><small>Out of 100</small></div>
-        <div class="card stat" style="--c:#22c07a"><div class="ico">🏆</div><small>Top score</small><strong id="s3">0</strong><small id="s3n">–</small></div>
-        <div class="card stat" style="--c:#e8793a"><div class="ico">🎯</div><small>Pass rate</small><strong id="s4">0%</strong><small>Marks 40 and above</small></div>
-      </div>
-      <div class="grid two">
-        <div class="card"><h3>Recently added</h3><div id="recent"></div><button class="btn ghost" style="width:100%;margin-top:12px" onclick="go('records')">View all records</button></div>
-        <div class="card"><h3>Marks distribution</h3><div class="bars" id="bars"></div></div>
-      </div>
-    </section>
+    <div class="page-container">
 
-    <section class="page" id="add">
-      <div class="card"><h3>Add a new student</h3>
-        <p class="panel-note">The new record is attached to the end of the list. Registration numbers must be unique.</p>
-                <form id="fAdd" novalidate>
-          <label>Registration number<input id="aReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
-          <label>Name<input id="aName" placeholder="Full name" autocomplete="off"></label>
-          <label>Course
-            <select id="aCourse">
-              <option value="">Select course</option>
-              <option>CSECS</option>
-              <option>AIML</option>
-              <option>CSBS</option>
-              <option>DS</option>
-            </select>
-          </label>
-          <label>Marks (0 to 100)<input id="aMarks" type="number" min="0" max="100" step="0.5" placeholder="e.g. 86"></label>
-          <button class="btn" type="submit">Add student</button>
-        </form></div>
-    </section>
+      <!-- DASHBOARD -->
+      <section class="page active" id="page-dashboard">
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">OVERVIEW</span>
+            <h1>Dashboard</h1>
+            <p>Here's what's happening across your academic institution.</p>
+          </div>
+          <button class="primary-button" onclick="openStudentModal()"><i data-lucide="plus"></i> Add Student</button>
+        </div>
 
-    <section class="page" id="search">
-      <div class="card"><h3>Search by registration number</h3>
-        <p class="panel-note">The list is walked from the head, one node at a time, until a match is found.</p>
-        <form id="fSearch" novalidate>
-          <label>Registration number<input id="qReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
-          <button class="btn" type="submit">Search</button>
-        </form>
-        <div id="qOut"></div></div>
-    </section>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-top"><span>Total Students</span><div class="stat-icon purple"><i data-lucide="users"></i></div></div>
+            <h2 id="totalStudents">0</h2>
+            <div class="stat-foot"><span class="stat-note">Registered students</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><span>Average Attendance</span><div class="stat-icon blue"><i data-lucide="calendar-check"></i></div></div>
+            <h2 id="averageAttendance">0%</h2>
+            <div class="stat-foot"><span class="stat-note">Across student records</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><span>Fees Collected</span><div class="stat-icon green"><i data-lucide="wallet"></i></div></div>
+            <h2 id="feesCollected">₹0</h2>
+            <div class="stat-foot"><span class="stat-note">Total amount received</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-top"><span>Pending Fees</span><div class="stat-icon orange"><i data-lucide="clock"></i></div></div>
+            <h2 id="pendingFees">₹0</h2>
+            <div class="stat-foot"><span class="stat-note">Outstanding balance</span></div>
+          </div>
+        </div>
 
-    <section class="page" id="delete">
-      <div class="card"><h3>Delete a student record</h3>
-        <p class="panel-note">The node is unlinked: the previous node now points to the next one.</p>
-        <form id="fDel" novalidate>
-          <label>Registration number<input id="dReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
-          <button class="btn danger" type="submit">Delete record</button>
-        </form>
-        <div id="dOut"></div></div>
-    </section>
+        <div class="dashboard-grid">
+          <div class="panel performance-panel">
+            <div class="panel-heading">
+              <div><h3>Academic Performance</h3><p>Average marks distribution</p></div>
+              <span class="soft-tag">Student overview</span>
+            </div>
+            <div class="chart-wrap"><canvas id="performanceChart"></canvas></div>
+          </div>
+          <div class="panel attendance-panel">
+            <div class="panel-heading">
+              <div><h3>Attendance Overview</h3><p>Overall attendance status</p></div>
+            </div>
+            <div class="attendance-chart-wrap"><canvas id="attendanceChart"></canvas><div class="chart-center"><strong id="chartAttendance">0%</strong><span>Attendance</span></div></div>
+            <div class="legend-list">
+              <div><span class="legend-dot present"></span>Good attendance <strong id="goodCount">0</strong></div>
+              <div><span class="legend-dot absent"></span>Below 75% <strong id="lowCount">0</strong></div>
+            </div>
+          </div>
+        </div>
 
-    <section class="page" id="records">
-      <div class="card"><h3>All student records</h3>
-        <div class="chain" id="chain" aria-label="Linked list diagram"></div>
-        <div class="tw"><table><thead><tr><th>#</th><th>Reg. no.</th><th>Name</th><th>Course</th><th>Marks</th><th>Result</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
-        <div class="empty" id="none" hidden>The list is empty. Add a student to create the first node.</div></div>
-    </section>
+        <div class="panel recent-panel">
+          <div class="panel-heading">
+            <div><h3>Recent Student Records</h3><p>Recently registered students</p></div>
+            <button class="text-button" onclick="showPage('students')">View all <i data-lucide="arrow-right"></i></button>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead><tr><th>STUDENT</th><th>REGISTRATION NO.</th><th>COURSE</th><th>YEAR</th><th>ATTENDANCE</th><th>STATUS</th></tr></thead>
+              <tbody id="recentStudents"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-    <section class="page" id="source">
-      <div class="card"><h3>The same program in C</h3>
-        <p class="panel-note">This site mirrors this menu-driven program. Save it as <b>students.c</b> and compile with <b>gcc students.c -o students</b>.</p>
-<pre id="code"></pre></div>
-    </section>
+      <!-- STUDENTS -->
+      <section class="page" id="page-students">
+        <div class="page-heading">
+          <div><span class="eyebrow">STUDENT DIRECTORY</span><h1>Student Records</h1><p>Maintain and manage student information and registration details.</p></div>
+          <button class="primary-button" onclick="openStudentModal()"><i data-lucide="plus"></i> Add Student</button>
+        </div>
+        <div class="filter-bar">
+          <div class="search-box"><i data-lucide="search"></i><input id="studentSearch" placeholder="Search name or registration number..." oninput="renderStudents()"></div>
+          <select id="courseFilter" onchange="renderStudents()"><option value="">All Courses</option></select>
+          <select id="yearFilter" onchange="renderStudents()"><option value="">All Years</option><option>1st Year</option><option>2nd Year</option><option>3rd Year</option><option>4th Year</option></select>
+          <button class="outline-button" onclick="resetFilters()"><i data-lucide="rotate-ccw"></i> Reset</button>
+        </div>
+        <div class="panel">
+          <div class="panel-heading"><div><h3>All Students</h3><p id="studentCountLabel">0 student records</p></div><span class="soft-tag">Student database</span></div>
+          <div class="table-responsive">
+            <table>
+              <thead><tr><th>STUDENT DETAILS</th><th>REGISTRATION NO.</th><th>COURSE</th><th>YEAR</th><th>PHONE</th><th>ACTIONS</th></tr></thead>
+              <tbody id="studentsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-    <section class="page" id="exit">
-      <div class="card bye"><h1 class="hero">Session <span>closed.</span></h1>
-        <p class="sub">Your records are saved in this browser. Open the dashboard whenever you want to continue.</p>
-        <button class="btn" onclick="go('dashboard')">Back to dashboard</button></div>
-    </section>
+      <!-- ATTENDANCE -->
+      <section class="page" id="page-attendance">
+        <div class="page-heading"><div><span class="eyebrow">ACADEMIC MONITORING</span><h1>Attendance Management</h1><p>Monitor classes held, classes attended and student attendance percentages.</p></div></div>
+        <div class="stats-grid three-stats">
+          <div class="stat-card"><div class="stat-top"><span>Average Attendance</span><div class="stat-icon purple"><i data-lucide="chart-pie"></i></div></div><h2 id="attAverage">0%</h2><span class="stat-note">Overall average</span></div>
+          <div class="stat-card"><div class="stat-top"><span>Good Standing</span><div class="stat-icon green"><i data-lucide="check-circle"></i></div></div><h2 id="attGood">0</h2><span class="stat-note">75% or above</span></div>
+          <div class="stat-card"><div class="stat-top"><span>Needs Attention</span><div class="stat-icon orange"><i data-lucide="alert-circle"></i></div></div><h2 id="attLow">0</h2><span class="stat-note">Below 75%</span></div>
+        </div>
+        <div class="filter-bar"><div class="search-box"><i data-lucide="search"></i><input id="attendanceSearch" placeholder="Search student..." oninput="renderAttendance()"></div><select id="attendanceSubject" onchange="renderAttendance()"><option value="">All Subjects</option></select></div>
+        <div class="panel"><div class="panel-heading"><div><h3>Student Attendance Records</h3><p>Attendance details by student and subject</p></div></div>
+          <div class="table-responsive"><table><thead><tr><th>STUDENT</th><th>SUBJECT</th><th>CLASSES HELD</th><th>ATTENDED</th><th>ATTENDANCE</th><th>ACTION</th></tr></thead><tbody id="attendanceTable"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ACADEMICS -->
+      <section class="page" id="page-academics">
+        <div class="page-heading"><div><span class="eyebrow">ACADEMIC PERFORMANCE</span><h1>Academic Records</h1><p>Track marks, grades, semester performance and cumulative GPA.</p></div></div>
+        <div class="stats-grid three-stats">
+          <div class="stat-card"><div class="stat-top"><span>Average Marks</span><div class="stat-icon purple"><i data-lucide="award"></i></div></div><h2 id="avgMarks">0</h2><span class="stat-note">Out of 100</span></div>
+          <div class="stat-card"><div class="stat-top"><span>Average CGPA</span><div class="stat-icon blue"><i data-lucide="graduation-cap"></i></div></div><h2 id="avgCGPA">0.00</h2><span class="stat-note">Cumulative performance</span></div>
+          <div class="stat-card"><div class="stat-top"><span>Students Evaluated</span><div class="stat-icon green"><i data-lucide="clipboard-check"></i></div></div><h2 id="evaluatedCount">0</h2><span class="stat-note">Academic records</span></div>
+        </div>
+        <div class="panel"><div class="panel-heading"><div><h3>Academic Performance Records</h3><p>Student marks and semester results</p></div><div class="search-box compact-search"><i data-lucide="search"></i><input id="academicSearch" placeholder="Search student..." oninput="renderAcademics()"></div></div>
+          <div class="table-responsive"><table><thead><tr><th>STUDENT</th><th>REGISTRATION NO.</th><th>COURSE</th><th>MARKS</th><th>GRADE</th><th>SGPA</th><th>CGPA</th><th>ACTION</th></tr></thead><tbody id="academicsTable"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- FEES -->
+      <section class="page" id="page-fees">
+        <div class="page-heading"><div><span class="eyebrow">FINANCIAL RECORDS</span><h1>Fee Management</h1><p>Maintain student fee details, payment records and outstanding balances.</p></div></div>
+        <div class="stats-grid three-stats">
+          <div class="stat-card"><div class="stat-top"><span>Total Fee Amount</span><div class="stat-icon purple"><i data-lucide="indian-rupee"></i></div></div><h2 id="totalFeeAmount">₹0</h2><span class="stat-note">Total assessed fees</span></div>
+          <div class="stat-card"><div class="stat-top"><span>Amount Received</span><div class="stat-icon green"><i data-lucide="wallet"></i></div></div><h2 id="receivedFeeAmount">₹0</h2><span class="stat-note">Collected payments</span></div>
+          <div class="stat-card"><div class="stat-top"><span>Outstanding Fees</span><div class="stat-icon orange"><i data-lucide="receipt"></i></div></div><h2 id="outstandingFeeAmount">₹0</h2><span class="stat-note">Pending payments</span></div>
+        </div>
+        <div class="filter-bar"><div class="search-box"><i data-lucide="search"></i><input id="feeSearch" placeholder="Search student..." oninput="renderFees()"></div><select id="feeFilter" onchange="renderFees()"><option value="">All Payment Status</option><option value="Paid">Paid</option><option value="Partial">Partial</option><option value="Pending">Pending</option></select></div>
+        <div class="panel"><div class="panel-heading"><div><h3>Student Fee Records</h3><p>Fee payments and balances</p></div></div>
+          <div class="table-responsive"><table><thead><tr><th>STUDENT</th><th>REGISTRATION NO.</th><th>TOTAL FEES</th><th>PAID</th><th>BALANCE</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="feesTable"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- COURSES -->
+      <section class="page" id="page-courses">
+        <div class="page-heading"><div><span class="eyebrow">ACADEMIC PROGRAMMES</span><h1>Courses & Branches</h1><p>Explore undergraduate engineering programmes and specializations.</p></div></div>
+        <div class="course-grid" id="courseGrid"></div>
+      </section>
+
+      <!-- REPORTS -->
+      <section class="page" id="page-reports">
+        <div class="page-heading"><div><span class="eyebrow">INSTITUTIONAL INSIGHTS</span><h1>Reports & Analytics</h1><p>Review student enrollment, academic and financial summaries.</p></div><button class="outline-button" onclick="exportCSV()"><i data-lucide="download"></i> Export Student Data</button></div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-top"><span>Total Enrolled</span><div class="stat-icon purple"><i data-lucide="users"></i></div></div><h2 id="reportStudents">0</h2></div>
+          <div class="stat-card"><div class="stat-top"><span>Average Marks</span><div class="stat-icon blue"><i data-lucide="award"></i></div></div><h2 id="reportMarks">0</h2></div>
+          <div class="stat-card"><div class="stat-top"><span>Fee Collection</span><div class="stat-icon green"><i data-lucide="indian-rupee"></i></div></div><h2 id="reportFees">₹0</h2></div>
+          <div class="stat-card"><div class="stat-top"><span>Attendance</span><div class="stat-icon orange"><i data-lucide="calendar-check"></i></div></div><h2 id="reportAttendance">0%</h2></div>
+        </div>
+        <div class="panel"><div class="panel-heading"><div><h3>Course-wise Enrollment</h3><p>Number of students in each programme</p></div></div><div class="chart-wrap"><canvas id="courseChart"></canvas></div></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="page" id="page-settings">
+        <div class="page-heading"><div><span class="eyebrow">PORTAL PREFERENCES</span><h1>Settings</h1><p>Manage your portal information and student data.</p></div></div>
+        <div class="settings-grid">
+          <div class="panel settings-card"><div class="settings-icon"><i data-lucide="building-2"></i></div><h3>Institution Information</h3><p>Update the academic institution details displayed in the portal.</p><label>Institution name</label><input id="institutionName" value="STUDYHUB Academic Institution"><label>Academic year</label><input id="academicYear" value="2026-27"><button class="primary-button" onclick="saveSettings()">Save changes</button></div>
+          <div class="panel settings-card"><div class="settings-icon"><i data-lucide="database"></i></div><h3>Student Database</h3><p>Manage your locally stored student records and backup information.</p><div class="settings-info"><span>Stored student records</span><strong id="settingsStudentCount">0</strong></div><button class="outline-button full-button" onclick="exportCSV()"><i data-lucide="download"></i> Export backup (CSV)</button><button class="danger-outline full-button" onclick="resetData()"><i data-lucide="trash-2"></i> Restore sample data</button></div>
+        </div>
+      </section>
+    </div>
   </main>
 </div>
-<div id="toast" role="status"></div>
 
-<script src="app.js"></script>
+<!-- STUDENT MODAL -->
+<div class="modal-overlay" id="studentModal">
+  <div class="modal modal-large">
+    <div class="modal-header"><div><span class="eyebrow">STUDENT INFORMATION</span><h2 id="studentModalTitle">Add New Student</h2><p>Enter the student's academic and personal details.</p></div><button class="icon-button" onclick="closeModal('studentModal')"><i data-lucide="x"></i></button></div>
+    <form id="studentForm">
+      <input type="hidden" id="editId">
+      <div class="form-section-title">Personal Details</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Full Name *</label><input id="sName" required placeholder="Enter full name"></div>
+        <div class="form-group"><label>Registration Number *</label><input id="sReg" required placeholder="e.g. 251FA19001"></div>
+        <div class="form-group"><label>Email Address</label><input id="sEmail" type="email" placeholder="student@email.com"></div>
+        <div class="form-group"><label>Phone Number</label><input id="sPhone" type="tel" placeholder="10-digit mobile number"></div>
+        <div class="form-group"><label>Gender</label><select id="sGender"><option>Not specified</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+        <div class="form-group"><label>Date of Birth</label><input id="sDob" type="date"></div>
+      </div>
+      <div class="form-section-title">Academic Details</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Course / Branch *</label><select id="sCourse" required></select></div>
+        <div class="form-group"><label>Academic Year *</label><select id="sYear"><option>1st Year</option><option>2nd Year</option><option>3rd Year</option><option>4th Year</option></select></div>
+        <div class="form-group"><label>Semester</label><select id="sSemester"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+        <div class="form-group"><label>Section</label><input id="sSection" placeholder="e.g. A"></div>
+      </div>
+      <div class="form-section-title">Academic Performance & Fees</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Average Marks (out of 100)</label><input id="sMarks" type="number" min="0" max="100" value="0"></div>
+        <div class="form-group"><label>SGPA</label><input id="sSGPA" type="number" min="0" max="10" step="0.01" value="0"></div>
+        <div class="form-group"><label>CGPA</label><input id="sCGPA" type="number" min="0" max="10" step="0.01" value="0"></div>
+        <div class="form-group"><label>Total Fees (₹)</label><input id="sTotalFee" type="number" min="0" value="100000"></div>
+        <div class="form-group"><label>Fees Paid (₹)</label><input id="sPaidFee" type="number" min="0" value="0"></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="outline-button" onclick="closeModal('studentModal')">Cancel</button><button type="submit" class="primary-button"><i data-lucide="save"></i> Save Student</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- STUDENT PROFILE MODAL -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-header"><div><span class="eyebrow">STUDENT PROFILE</span><h2>Student Information</h2></div><button class="icon-button" onclick="closeModal('profileModal')"><i data-lucide="x"></i></button></div>
+    <div id="profileContent"></div>
+  </div>
+</div>
+
+<!-- ATTENDANCE MODAL -->
+<div class="modal-overlay" id="attendanceModal">
+  <div class="modal">
+    <div class="modal-header"><div><span class="eyebrow">ATTENDANCE UPDATE</span><h2>Update Attendance</h2></div><button class="icon-button" onclick="closeModal('attendanceModal')"><i data-lucide="x"></i></button></div>
+    <form id="attendanceForm">
+      <input type="hidden" id="attStudentId"><input type="hidden" id="attSubject">
+      <div class="form-group"><label>Subject</label><input id="attSubjectDisplay" disabled></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Classes Held</label><input id="attHeld" type="number" min="0" required></div>
+        <div class="form-group"><label>Classes Attended</label><input id="attAttended" type="number" min="0" required></div>
+      </div>
+      <p class="helper-text">Classes attended cannot exceed classes held.</p>
+      <div class="modal-actions"><button type="button" class="outline-button" onclick="closeModal('attendanceModal')">Cancel</button><button type="submit" class="primary-button">Save Attendance</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- FEE MODAL -->
+<div class="modal-overlay" id="feeModal">
+  <div class="modal">
+    <div class="modal-header"><div><span class="eyebrow">PAYMENT RECORD</span><h2>Record Fee Payment</h2></div><button class="icon-button" onclick="closeModal('feeModal')"><i data-lucide="x"></i></button></div>
+    <form id="feeForm">
+      <input type="hidden" id="feeStudentId">
+      <div id="feeStudentInfo" class="fee-student-info"></div>
+      <div class="form-group"><label>Payment Amount (₹)</label><input id="feePayment" type="number" min="1" required></div>
+      <div class="form-group"><label>Payment Date</label><input id="feeDate" type="date" required></div>
+      <div class="form-group"><label>Payment Reference</label><input id="feeReference" placeholder="Transaction / receipt reference"></div>
+      <div class="modal-actions"><button type="button" class="outline-button" onclick="closeModal('feeModal')">Cancel</button><button type="submit" class="primary-button">Record Payment</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast"><i data-lucide="check-circle"></i><span id="toastMessage"></span></div>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
