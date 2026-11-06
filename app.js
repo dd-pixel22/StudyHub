@@ -1,1584 +1,1166 @@
 
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-
-import {
-  initializeAuth,
-  inMemoryPersistence,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  updateProfile
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  getDocs,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
 /* ==========================================
-   1. FIREBASE CONFIGURATION
+   STUDYHUB - STUDENT MANAGEMENT PORTAL
+   Singly Linked List + LocalStorage
 ========================================== */
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDbp7MMX5jgYgM5H2KpUGYryWMuecwaroY",
-  authDomain: "studyhub-139ef.firebaseapp.com",
-  projectId: "studyhub-139ef",
-  storageBucket: "studyhub-139ef.firebasestorage.app",
-  messagingSenderId: "747349756102",
-  appId: "1:747349756102:web:cf68eeeb7b91e54ab82fc7"
-};
-
-const firebaseApp = getApps().length
-  ? getApp()
-  : initializeApp(firebaseConfig);
-
-const auth = initializeAuth(firebaseApp, {
-  persistence: inMemoryPersistence
-});
-
-const db = getFirestore(firebaseApp);
-
-/* ==========================================
-   2. APPLICATION STATE
-========================================== */
-
-const SUBJECTS = ["DS", "DBMS", "MFCS", "FOIS", "CN", "OOPS"];
-
-const DAYS = [
-  "Monday", "Tuesday", "Wednesday",
-  "Thursday", "Friday", "Saturday"
-];
-
-const PERIODS = [
-  { start: "08:15", end: "09:00" },
-  { start: "09:00", end: "09:45" },
-  { start: "09:45", end: "10:00" },
-  { start: "10:15", end: "11:00" },
-  { start: "11:00", end: "11:45" },
-  { start: "11:45", end: "12:00" },
-  { start: "13:00", end: "13:45" },
-  { start: "13:45", end: "14:30" },
-  { start: "14:30", end: "15:15" },
-  { start: "15:15", end: "16:00" }
-];
-
-let currentTeacher = null;
-let teacherData = {};
-let students = [];
-let departments = [];
-let timetable = [];
-let currentSubject = "";
-let toastTimer;
-let loading = false;
+const STORAGE_KEY = "studyhub_portal_v1";
 
 const $ = id => document.getElementById(id);
 
-const teacherDoc = uid => doc(db, "teachers", uid);
-
-const studentCollection = uid =>
-  collection(db, "teachers", uid, "students");
-
-/* ==========================================
-   3. HELPERS
-========================================== */
-
-function escapeHTML(value = "") {
-  return String(value).replace(/[&<>"']/g, c => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  })[c]);
+function uid() {
+  return "SH" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-function initials(name = "Teacher") {
-  return name.trim().split(/\s+/).slice(0, 2)
-    .map(x => x[0]?.toUpperCase() || "").join("") || "T";
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  })[char]);
 }
 
 function money(value) {
-  return Number(value || 0).toLocaleString("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2
+  return "₹" + Number(value || 0).toLocaleString("en-IN");
+}
+
+function initials(name) {
+  return String(name || "Student").trim().split(/\s+/).slice(0, 2).map(x => x[0]).join("").toUpperCase();
+}
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function dateLabel(date) {
+  if (!date) return "";
+  return new Date(date + "T00:00:00").toLocaleDateString("en-IN", {
+    day: "numeric", month: "short", year: "numeric"
   });
 }
 
-function showToast(message, type = "success") {
-  const toast = $("toast");
-  if (!toast) return;
+/* SINGLY LINKED LIST */
 
-  clearTimeout(toastTimer);
-  toast.textContent = message;
-  toast.className = `toast show ${type}`;
-
-  toastTimer = setTimeout(() => {
-    toast.className = "toast";
-  }, 3000);
+class StudentNode {
+  constructor(data) {
+    this.data = data;
+    this.next = null;
+  }
 }
 
-function message(id, text, type = "error") {
-  const el = $(id);
-  if (!el) return;
+class StudentLinkedList {
+  constructor() {
+    this.head = null;
+    this.length = 0;
+  }
 
-  el.textContent = text;
-  el.className = `form-message ${type}`;
+  add(data) {
+    const node = new StudentNode(data);
+
+    if (!this.head) {
+      this.head = node;
+    } else {
+      let current = this.head;
+      while (current.next) current = current.next;
+      current.next = node;
+    }
+
+    this.length++;
+    return node;
+  }
+
+  find(regNo) {
+    let current = this.head;
+    while (current) {
+      if (current.data.regNo.toLowerCase() === String(regNo).toLowerCase()) {
+        return current;
+      }
+      current = current.next;
+    }
+    return null;
+  }
+
+  delete(regNo) {
+    if (!this.head) return false;
+
+    if (this.head.data.regNo.toLowerCase() === String(regNo).toLowerCase()) {
+      this.head = this.head.next;
+      this.length--;
+      return true;
+    }
+
+    let current = this.head;
+    while (current.next) {
+      if (current.next.data.regNo.toLowerCase() === String(regNo).toLowerCase()) {
+        current.next = current.next.next;
+        this.length--;
+        return true;
+      }
+      current = current.next;
+    }
+
+    return false;
+  }
+
+  update(regNo, newData) {
+    const node = this.find(regNo);
+    if (!node) return false;
+    node.data = newData;
+    return true;
+  }
+
+  toArray() {
+    const result = [];
+    let current = this.head;
+    while (current) {
+      result.push(current.data);
+      current = current.next;
+    }
+    return result;
+  }
+
+  get size() {
+    return this.length;
+  }
 }
 
-function clearMessage(id) {
-  if ($(id)) $(id).textContent = "";
-}
+/* APPLICATION DATA */
 
-function selectedSubjects(containerId) {
-  const container = $(containerId);
-  if (!container) return [];
+let students = new StudentLinkedList();
+let attendanceRecords = {};
+let timetable = [];
+let announcements = [];
+let activityLog = [];
+let institution = {
+  name: "StudyHub Institution",
+  year: "2026–2027"
+};
 
-  return [...container.querySelectorAll(
-    'input[type="checkbox"]:checked'
-  )].map(input => input.value)
-    .filter(value => SUBJECTS.includes(value));
-}
+let currentChart = null;
+let editingId = null;
+let modalMode = "";
 
-function subjectPickerHTML(selected = []) {
-  return SUBJECTS.map(subject => `
-    <label class="subject-choice">
-      <input type="checkbox" value="${subject}"
-        ${selected.includes(subject) ? "checked" : ""}>
-      <span>${subject}</span>
-    </label>
-  `).join("");
-}
-
-function setSubjectPicker(id, selected = []) {
-  const el = $(id);
-  if (!el) return;
-  el.innerHTML = subjectPickerHTML(selected);
-}
-
-function studentName(id) {
-  return students.find(s => s.id === id)?.name || "Unknown";
-}
-
-function studentRoll(id) {
-  return students.find(s => s.id === id)?.roll || "";
-}
-
-function getPercentage(held, attended) {
-  if (!Number(held)) return 0;
-  return Math.min(100, Number(attended) / Number(held) * 100);
-}
-
-function average(values) {
-  const valid = values.map(Number).filter(Number.isFinite);
-  if (!valid.length) return null;
-  return valid.reduce((a, b) => a + b, 0) / valid.length;
-}
-
-function showError(error) {
-  console.error(error);
-
-  const errors = {
-    "auth/email-already-in-use": "This email is already registered.",
-    "auth/invalid-email": "Please enter a valid email.",
-    "auth/invalid-credential": "Incorrect email or password.",
-    "auth/user-not-found": "Account not found.",
-    "auth/weak-password": "Password must contain at least 6 characters.",
-    "auth/too-many-requests": "Too many attempts. Try again later.",
-    "auth/network-request-failed": "Check your internet connection.",
-    "permission-denied": "Firebase permission denied. Check Firestore rules."
+function saveData() {
+  const data = {
+    students: students.toArray(),
+    attendanceRecords,
+    timetable,
+    announcements,
+    activityLog,
+    institution
   };
 
-  showToast(errors[error.code] || error.message || "Something went wrong.", "error");
-}
-
-function dateToday() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/* ==========================================
-   4. AUTHENTICATION
-========================================== */
-
-$("showRegister").addEventListener("click", () => {
-  $("loginView").classList.add("hidden");
-  $("registerView").classList.remove("hidden");
-});
-
-$("showLogin").addEventListener("click", () => {
-  $("registerView").classList.add("hidden");
-  $("loginView").classList.remove("hidden");
-});
-
-document.querySelectorAll("[data-toggle]").forEach(button => {
-  button.addEventListener("click", () => {
-    const input = $(button.dataset.toggle);
-    if (!input) return;
-
-    input.type = input.type === "password" ? "text" : "password";
-    button.textContent = input.type === "password" ? "Show" : "Hide";
-  });
-});
-
-$("rememberEmail").addEventListener("change", () => {
-  if ($("rememberEmail").checked) {
-    localStorage.setItem("studenthub_email", $("loginEmail").value);
-  } else {
-    localStorage.removeItem("studenthub_email");
-  }
-});
-
-$("loginEmail").addEventListener("input", () => {
-  if ($("rememberEmail").checked) {
-    localStorage.setItem("studenthub_email", $("loginEmail").value);
-  }
-});
-
-$("loginEmail").value = localStorage.getItem("studenthub_email") || "";
-$("rememberEmail").checked = !!localStorage.getItem("studenthub_email");
-
-$("loginForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  if (loading) return;
-
-  loading = true;
-  const button = $("loginForm").querySelector("button[type=submit]");
-  button.disabled = true;
-  button.textContent = "Signing in...";
-
   try {
-    await signInWithEmailAndPassword(
-      auth,
-      $("loginEmail").value.trim(),
-      $("loginPassword").value
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
-    message("loginError", error.code === "auth/invalid-credential"
-      ? "Incorrect email or password."
-      : error.message);
-  } finally {
-    loading = false;
-    button.disabled = false;
-    button.innerHTML = 'Sign In <span>→</span>';
-  }
-});
-
-$("registerForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  if (loading) return;
-
-  const name = $("registerName").value.trim();
-  const email = $("registerEmail").value.trim();
-  const password = $("registerPassword").value;
-  const subjects = selectedSubjects("registerSubjects");
-
-  if (!subjects.length) {
-    message("registerError", "Select at least one subject.");
-    return;
-  }
-
-  loading = true;
-  const button = $("registerForm").querySelector("button[type=submit]");
-  button.disabled = true;
-  button.textContent = "Creating account...";
-
-  try {
-    const result = await createUserWithEmailAndPassword(
-      auth, email, password
-    );
-
-    await updateProfile(result.user, { displayName: name });
-
-    await setDoc(teacherDoc(result.user.uid), {
-      uid: result.user.uid,
-      name,
-      email,
-      subjects,
-      departments: [],
-      timetable: [],
-      createdAt: serverTimestamp()
-    }, { merge: true });
-
-    showToast("Teacher account created successfully!");
-  } catch (error) {
-    message("registerError", error.message);
-  } finally {
-    loading = false;
-    button.disabled = false;
-    button.textContent = "Create Account →";
-  }
-});
-
-async function resetPassword() {
-  const email = $("loginEmail").value.trim() ||
-    currentTeacher?.email;
-
-  if (!email) {
-    showToast("Enter your email address first.", "error");
-    return;
-  }
-
-  try {
-    await sendPasswordResetEmail(auth, email);
-    showToast("Password reset email sent!");
-  } catch (error) {
-    showError(error);
+    showToast("Unable to save data in this browser.");
+    console.error(error);
   }
 }
 
-$("forgotPassword").addEventListener("click", resetPassword);
-$("resetPasswordSettings").addEventListener("click", resetPassword);
-
-async function logout() {
+function loadData() {
   try {
-    await signOut(auth);
-    showToast("Signed out successfully.");
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+
+    const data = JSON.parse(raw);
+
+    students = new StudentLinkedList();
+    (Array.isArray(data.students) ? data.students : []).forEach(s => students.add(s));
+
+    attendanceRecords = data.attendanceRecords || {};
+    timetable = Array.isArray(data.timetable) ? data.timetable : [];
+    announcements = Array.isArray(data.announcements) ? data.announcements : [];
+    activityLog = Array.isArray(data.activityLog) ? data.activityLog : [];
+    institution = data.institution || institution;
   } catch (error) {
-    showError(error);
+    console.error("Unable to load saved records:", error);
+    students = new StudentLinkedList();
+    attendanceRecords = {};
+    timetable = [];
+    announcements = [];
+    activityLog = [];
   }
 }
 
-$("logoutButton").addEventListener("click", logout);
-
-/* ==========================================
-   5. AUTHENTICATION STATE
-========================================== */
-
-onAuthStateChanged(auth, async user => {
-  currentTeacher = user;
-
-  if (!user) {
-    $("authPage").classList.remove("hidden");
-    $("app").classList.add("hidden");
-    currentTeacher = null;
-    students = [];
-    teacherData = {};
-    return;
-  }
-
-  try {
-    await loadWorkspace();
-    $("authPage").classList.add("hidden");
-    $("app").classList.remove("hidden");
-    updateProfileUI();
-    initializeWorkspace();
-    navigate("dashboard");
-  } catch (error) {
-    showError(error);
-    $("authPage").classList.remove("hidden");
-    $("app").classList.add("hidden");
-  }
-});
-
-/* ==========================================
-   6. LOAD FIRESTORE DATA
-========================================== */
-
-async function loadWorkspace() {
-  const profileSnapshot = await getDoc(teacherDoc(currentTeacher.uid));
-
-  if (!profileSnapshot.exists()) {
-    teacherData = {
-      uid: currentTeacher.uid,
-      name: currentTeacher.displayName || "Teacher",
-      email: currentTeacher.email,
-      subjects: [],
-      departments: [],
-      timetable: []
-    };
-
-    await setDoc(teacherDoc(currentTeacher.uid), {
-      ...teacherData,
-      createdAt: serverTimestamp()
-    });
-  } else {
-    teacherData = profileSnapshot.data();
-  }
-
-  departments = Array.isArray(teacherData.departments)
-    ? teacherData.departments : [];
-
-  timetable = Array.isArray(teacherData.timetable)
-    ? teacherData.timetable : [];
-
-  const snapshot = await getDocs(studentCollection(currentTeacher.uid));
-
-  students = snapshot.docs.map(item => {
-    const data = item.data();
-
-    return {
-      id: item.id,
-      ...data,
-      subjects: Array.isArray(data.subjects) ? data.subjects : [],
-      attendance: Array.isArray(data.attendance) ? data.attendance : [],
-      results: Array.isArray(data.results) ? data.results : [],
-      fees: Array.isArray(data.fees) ? data.fees : []
-    };
-  });
-}
-
-/* ==========================================
-   7. PROFILE UI
-========================================== */
-
-function updateProfileUI() {
-  const name = teacherData.name || currentTeacher.displayName || "Teacher";
-  const email = currentTeacher.email || "";
-
-  $("sidebarName").textContent = name;
-  $("sidebarEmail").textContent = email;
-  $("welcomeName").textContent = name.split(" ")[0];
-
-  $("sidebarInitials").textContent = initials(name);
-  $("topInitials").textContent = initials(name);
-  $("settingsInitials").textContent = initials(name);
-
-  $("settingsName").textContent = name;
-  $("settingsEmail").textContent = email;
-  $("settingsEmailDisplay").value = email;
-  $("settingsNameInput").value = name;
-
-  $("todayLabel").textContent = new Date().toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric"
+function recordActivity(message) {
+  activityLog.unshift({
+    id: uid(),
+    message,
+    time: new Date().toISOString()
   });
 
-  setSubjectPicker("settingsSubjects", teacherData.subjects || []);
-  setSubjectPicker("studentSubjects", teacherData.subjects || []);
-  setSubjectPicker("registerSubjects", []);
+  activityLog = activityLog.slice(0, 100);
+  saveData();
 }
 
-/* ==========================================
-   8. INITIALIZE WORKSPACE
-========================================== */
+/* COMMON UI */
 
-function initializeWorkspace() {
+function showToast(message) {
+  const container = $("toastContainer");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `<i data-lucide="check-circle"></i><span>${escapeHTML(message)}</span>`;
+  container.appendChild(toast);
+
+  if (window.lucide) lucide.createIcons();
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function refreshIcons() {
+  if (window.lucide) lucide.createIcons();
+}
+
+function showPage(page) {
+  const target = $("page-" + page);
+  if (!target) return;
+
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  target.classList.add("active");
+
+  document.querySelectorAll(".nav-link").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.page === page);
+  });
+
+  $("currentSection").textContent =
+    document.querySelector(`.nav-link[data-page="${page}"]`)?.textContent.trim() || "Dashboard";
+
+  $("sidebar").classList.remove("open");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
   renderAll();
-  populateStudentDropdowns();
-  renderDepartments();
-  populateTimetableSelectors();
-  initializeTimetableTimes();
-
-  $("feeDate").value = dateToday();
-
-  document.body.classList.toggle(
-    "dark",
-    localStorage.getItem("studenthub_theme") === "dark"
-  );
-
-  updateThemeButton();
+  refreshIcons();
 }
+
+function showEmpty(id, visible) {
+  const element = $(id);
+  if (element) element.classList.toggle("show", visible);
+}
+
+function openModal(title, fields, mode, id = null, submitText = "Save Record") {
+  modalMode = mode;
+  editingId = id;
+
+  $("modalTitle").textContent = title;
+  $("modalEyebrow").textContent = "STUDYHUB / MANAGEMENT";
+  $("modalSubmit").textContent = submitText;
+
+  $("modalBody").innerHTML = fields.map(field => {
+    const full = field.full ? "full" : "";
+    let control = "";
+
+    if (field.type === "select") {
+      control = `<select name="${field.name}" ${field.required === false ? "" : "required"}>
+        ${field.options.map(option => {
+          const value = typeof option === "string" ? option : option.value;
+          const label = typeof option === "string" ? option : option.label;
+          return `<option value="${escapeHTML(value)}" ${String(value) === String(field.value ?? "") ? "selected" : ""}>${escapeHTML(label)}</option>`;
+        }).join("")}
+      </select>`;
+    } else if (field.type === "textarea") {
+      control = `<textarea name="${field.name}" placeholder="${escapeHTML(field.placeholder || "")}" ${field.required === false ? "" : "required"}>${escapeHTML(field.value || "")}</textarea>`;
+    } else {
+      control = `<input name="${field.name}" type="${field.type || "text"}" value="${escapeHTML(field.value ?? "")}" placeholder="${escapeHTML(field.placeholder || "")}" ${field.required === false ? "" : "required"} ${field.min !== undefined ? `min="${field.min}"` : ""} ${field.max !== undefined ? `max="${field.max}"` : ""} ${field.step ? `step="${field.step}"` : ""}>`;
+    }
+
+    return `<div class="form-field ${full}">
+      <label>${escapeHTML(field.label)}</label>${control}
+    </div>`;
+  }).join("");
+
+  $("modalOverlay").classList.add("show");
+  refreshIcons();
+}
+
+function closeModal() {
+  $("modalOverlay").classList.remove("show");
+  $("modalForm").reset();
+  editingId = null;
+  modalMode = "";
+}
+
+function fieldValue(form, name) {
+  return form.elements[name]?.value.trim() ?? "";
+}
+
+function addStudentFields(student = {}) {
+  return [
+    { name:"regNo", label:"Registration Number", value:student.regNo, placeholder:"e.g. 251FA19001" },
+    { name:"name", label:"Full Name", value:student.name, placeholder:"Student full name" },
+    { name:"email", label:"Email Address", type:"email", value:student.email, placeholder:"student@example.com" },
+    { name:"phone", label:"Phone Number", type:"tel", value:student.phone, placeholder:"Contact number" },
+    { name:"course", label:"Course", type:"select", value:student.course || "B.Tech CSE", options:["B.Tech CSE","B.Tech ECE","B.Tech EEE","B.Tech IT","B.Tech Mechanical","B.Tech Civil","BCA","MCA","Other"] },
+    { name:"year", label:"Academic Year", type:"select", value:student.year || "1st Year", options:["1st Year","2nd Year","3rd Year","4th Year"] },
+    { name:"gender", label:"Gender", type:"select", value:student.gender || "Not specified", options:["Not specified","Female","Male","Other"] },
+    { name:"dob", label:"Date of Birth", type:"date", value:student.dob || "", required:false },
+    { name:"address", label:"Address", type:"textarea", value:student.address || "", placeholder:"Enter student address", full:true, required:false },
+    { name:"totalFee", label:"Total Course Fee (₹)", type:"number", value:student.totalFee ?? 50000, min:0 },
+    { name:"paidFee", label:"Fee Paid (₹)", type:"number", value:student.paidFee ?? 0, min:0 }
+  ];
+}
+
+function openAddStudent() {
+  openModal("Register New Student", addStudentFields(), "student");
+}
+
+function openEditStudent(regNo) {
+  const node = students.find(regNo);
+  if (!node) return;
+  openModal("Edit Student Details", addStudentFields(node.data), "editStudent", regNo, "Update Student");
+}
+
+/* STUDENT OPERATIONS */
+
+function createStudent(form) {
+  const regNo = fieldValue(form, "regNo");
+  const name = fieldValue(form, "name");
+  const email = fieldValue(form, "email");
+  const phone = fieldValue(form, "phone");
+  const totalFee = Number(fieldValue(form, "totalFee"));
+  const paidFee = Number(fieldValue(form, "paidFee"));
+
+  if (students.find(regNo)) {
+    showToast("Registration number already exists.");
+    return false;
+  }
+
+  if (paidFee > totalFee) {
+    showToast("Paid fee cannot exceed total fee.");
+    return false;
+  }
+
+  const student = {
+    id: uid(),
+    regNo,
+    name,
+    email,
+    phone,
+    course: fieldValue(form, "course"),
+    year: fieldValue(form, "year"),
+    gender: fieldValue(form, "gender"),
+    dob: fieldValue(form, "dob"),
+    address: fieldValue(form, "address"),
+    totalFee,
+    paidFee,
+    marks: [],
+    createdAt: new Date().toISOString()
+  };
+
+  students.add(student);
+  recordActivity(`Registered student ${name} (${regNo})`);
+  return true;
+}
+
+function updateStudent(form) {
+  const oldNode = students.find(editingId);
+  if (!oldNode) return false;
+
+  const regNo = fieldValue(form, "regNo");
+  const duplicate = students.find(regNo);
+
+  if (duplicate && regNo.toLowerCase() !== editingId.toLowerCase()) {
+    showToast("This registration number is already in use.");
+    return false;
+  }
+
+  const totalFee = Number(fieldValue(form, "totalFee"));
+  const paidFee = Number(fieldValue(form, "paidFee"));
+
+  if (paidFee > totalFee) {
+    showToast("Paid fee cannot exceed total fee.");
+    return false;
+  }
+
+  const updated = {
+    ...oldNode.data,
+    regNo,
+    name: fieldValue(form, "name"),
+    email: fieldValue(form, "email"),
+    phone: fieldValue(form, "phone"),
+    course: fieldValue(form, "course"),
+    year: fieldValue(form, "year"),
+    gender: fieldValue(form, "gender"),
+    dob: fieldValue(form, "dob"),
+    address: fieldValue(form, "address"),
+    totalFee,
+    paidFee
+  };
+
+  students.update(editingId, updated);
+  recordActivity(`Updated student profile: ${updated.name}`);
+  return true;
+}
+
+function deleteStudent(regNo) {
+  const node = students.find(regNo);
+  if (!node) return;
+
+  if (!confirm(`Delete ${node.data.name} (${regNo})? This will also remove their related records.`)) return;
+
+  students.delete(regNo);
+
+  Object.keys(attendanceRecords).forEach(date => {
+    delete attendanceRecords[date][regNo];
+  });
+
+  recordActivity(`Deleted student ${node.data.name} (${regNo})`);
+  renderAll();
+  showToast("Student record deleted.");
+}
+
+function studentCell(student) {
+  return `<div class="student-cell">
+    <div class="student-avatar">${escapeHTML(initials(student.name))}</div>
+    <div><div class="student-name">${escapeHTML(student.name)}</div><div class="student-sub">${escapeHTML(student.email || "No email added")}</div></div>
+  </div>`;
+}
+
+function feeStatus(student) {
+  if (student.paidFee >= student.totalFee) return ["Paid","paid"];
+  if (student.paidFee > 0) return ["Partial","partial"];
+  return ["Pending","pending"];
+}
+
+function attendanceStats(student) {
+  let present = 0, absent = 0;
+  Object.values(attendanceRecords).forEach(day => {
+    if (day[student.regNo] === "Present") present++;
+    if (day[student.regNo] === "Absent") absent++;
+  });
+
+  const total = present + absent;
+  return {
+    present,
+    absent,
+    total,
+    rate: total ? Math.round(present / total * 100) : 0
+  };
+}
+
+function averageMarks(student) {
+  if (!student.marks.length) return 0;
+  return Math.round(student.marks.reduce((sum, m) => sum + Number(m.score), 0) / student.marks.length);
+}
+
+/* DASHBOARD */
+
+function renderDashboard() {
+  const list = students.toArray();
+  const total = list.length;
+
+  const avgAttendance = total
+    ? Math.round(list.reduce((sum,s) => sum + attendanceStats(s).rate,0) / total)
+    : 0;
+
+  const scores = list.flatMap(s => s.marks.map(m => Number(m.score)));
+  const avgMarks = scores.length
+    ? Math.round(scores.reduce((a,b) => a+b,0) / scores.length)
+    : 0;
+
+  const pending = list.reduce((sum,s) => sum + Math.max(0,s.totalFee-s.paidFee),0);
+
+  $("totalStudents").textContent = total;
+  $("averageAttendance").textContent = avgAttendance;
+  $("averageMarks").textContent = avgMarks;
+  $("pendingFees").textContent = money(pending);
+
+  let present = 0, absent = 0;
+  list.forEach(s => {
+    const a = attendanceStats(s);
+    present += a.present;
+    absent += a.absent;
+  });
+
+  const rate = present + absent ? Math.round(present / (present + absent) * 100) : 0;
+  $("attendanceRingValue").textContent = rate + "%";
+  $("attendanceRing").style.background =
+    `conic-gradient(var(--primary) ${rate * 3.6}deg, #eeeaf7 0deg)`;
+  $("presentTotal").textContent = present;
+  $("absentTotal").textContent = absent;
+
+  const recent = [...list].reverse().slice(0,5);
+  $("recentStudentsTable").innerHTML = recent.map(s => {
+    const a = attendanceStats(s);
+    const f = feeStatus(s);
+    return `<tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.regNo)}</td>
+      <td>${escapeHTML(s.course)}</td>
+      <td>${a.rate}%</td>
+      <td><span class="status ${f[1]}">${f[0]}</span></td>
+    </tr>`;
+  }).join("");
+
+  showEmpty("recentEmpty", total === 0);
+  renderChart();
+}
+
+function renderChart() {
+  const canvas = $("performanceChart");
+  if (!canvas || !window.Chart) return;
+
+  const list = students.toArray();
+  const scores = list.flatMap(s => s.marks.map(m => Number(m.score)));
+  const groups = [
+    scores.filter(x => x >= 80).length,
+    scores.filter(x => x >= 60 && x < 80).length,
+    scores.filter(x => x >= 40 && x < 60).length,
+    scores.filter(x => x < 40).length
+  ];
+
+  if (currentChart) currentChart.destroy();
+
+  currentChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: ["80–100","60–79","40–59","Below 40"],
+      datasets: [{
+        label: "Subject scores",
+        data: groups,
+        backgroundColor: ["#7657dc","#79a0e9","#54b99b","#e58b9b"],
+        borderRadius: 7,
+        maxBarThickness: 42
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display:false } },
+      scales: {
+        y: { beginAtZero:true, ticks:{ precision:0 }, grid:{ color:"rgba(130,120,160,.10)" } },
+        x: { grid:{ display:false } }
+      }
+    }
+  });
+}
+
+/* STUDENT DIRECTORY */
+
+function renderStudents() {
+  const query = ($("studentSearch")?.value || "").toLowerCase();
+  const course = $("courseFilter")?.value || "";
+  const year = $("yearFilter")?.value || "";
+
+  const filtered = students.toArray().filter(s => {
+    const matches = s.name.toLowerCase().includes(query) || s.regNo.toLowerCase().includes(query);
+    return matches && (!course || s.course === course) && (!year || s.year === year);
+  });
+
+  $("studentCount").textContent = filtered.length;
+
+  $("studentsTable").innerHTML = filtered.map(s => {
+    const a = attendanceStats(s);
+    const f = feeStatus(s);
+    return `<tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.regNo)}</td>
+      <td>${escapeHTML(s.course)}<div class="student-sub">${escapeHTML(s.year)}</div></td>
+      <td>${escapeHTML(s.email || "—")}</td>
+      <td>${a.rate}%</td>
+      <td><span class="status ${f[1]}">${f[0]}</span></td>
+      <td><div class="action-buttons">
+        <button class="action-btn" data-edit-student="${escapeHTML(s.regNo)}" title="Edit"><i data-lucide="pencil"></i></button>
+        <button class="action-btn delete" data-delete-student="${escapeHTML(s.regNo)}" title="Delete"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+  }).join("");
+
+  showEmpty("studentsEmpty", filtered.length === 0);
+}
+
+/* ATTENDANCE */
+
+function renderAttendance() {
+  const date = $("attendanceDate").value || today();
+  const list = students.toArray();
+  const records = attendanceRecords[date] || {};
+
+  let present = 0, absent = 0, unmarked = 0;
+
+  $("attendanceTable").innerHTML = list.map(s => {
+    const status = records[s.regNo] || "";
+    if (status === "Present") present++;
+    else if (status === "Absent") absent++;
+    else unmarked++;
+
+    return `<tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.regNo)}</td>
+      <td>${escapeHTML(s.course)}</td>
+      <td><select class="attendance-select" data-attendance-id="${escapeHTML(s.regNo)}">
+        <option value="" ${!status ? "selected" : ""}>Not marked</option>
+        <option value="Present" ${status === "Present" ? "selected" : ""}>Present</option>
+        <option value="Absent" ${status === "Absent" ? "selected" : ""}>Absent</option>
+      </select></td>
+    </tr>`;
+  }).join("");
+
+  $("todayPresent").textContent = present;
+  $("todayAbsent").textContent = absent;
+  $("notMarked").textContent = unmarked;
+  $("todayRate").textContent = present + absent ? Math.round(present/(present+absent)*100) : 0;
+
+  showEmpty("attendanceEmpty", list.length === 0);
+}
+
+function saveAttendance() {
+  const date = $("attendanceDate").value;
+  if (!date) return showToast("Select an attendance date.");
+
+  const records = { ...(attendanceRecords[date] || {}) };
+
+  document.querySelectorAll("[data-attendance-id]").forEach(select => {
+    if (select.value) records[select.dataset.attendanceId] = select.value;
+    else delete records[select.dataset.attendanceId];
+  });
+
+  attendanceRecords[date] = records;
+  recordActivity(`Attendance saved for ${dateLabel(date)}`);
+  renderAll();
+  showToast("Attendance saved successfully.");
+}
+
+/* MARKS & RESULTS */
+
+function grade(score) {
+  if (score >= 90) return "A+";
+  if (score >= 80) return "A";
+  if (score >= 70) return "B";
+  if (score >= 60) return "C";
+  if (score >= 50) return "D";
+  if (score >= 40) return "E";
+  return "F";
+}
+
+function openMarksModal(regNo = "") {
+  if (!students.size) return showToast("Register a student first.");
+
+  const fields = [
+    { name:"student", label:"Select Student", type:"select", options:students.toArray().map(s => ({value:s.regNo,label:`${s.name} (${s.regNo})`})), value:regNo || students.head.data.regNo },
+    { name:"subject", label:"Subject", placeholder:"e.g. Data Structures" },
+    { name:"exam", label:"Examination", type:"select", options:["Internal Assessment 1","Internal Assessment 2","Mid Examination","Semester Examination","Practical Examination"] },
+    { name:"score", label:"Marks Obtained", type:"number", min:0, max:100, placeholder:"0 - 100" },
+    { name:"date", label:"Examination Date", type:"date", value:today() }
+  ];
+
+  openModal("Update Examination Marks", fields, "marks");
+}
+
+function renderMarks() {
+  const list = students.toArray();
+  const entries = list.flatMap(s => s.marks.map((m,index) => ({...m,student:s,index})));
+  const scores = entries.map(m => Number(m.score));
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+
+  $("marksAverage").textContent = avg;
+  $("marksHighest").textContent = scores.length ? Math.max(...scores) : 0;
+  $("marksPassed").textContent = scores.filter(x=>x>=40).length;
+  $("marksFailed").textContent = scores.filter(x=>x<40).length;
+
+  $("marksTable").innerHTML = entries.map(m => `
+    <tr>
+      <td>${studentCell(m.student)}</td>
+      <td>${escapeHTML(m.student.regNo)}</td>
+      <td>${escapeHTML(m.subject)}<div class="student-sub">${escapeHTML(m.exam)}</div></td>
+      <td><strong>${m.score}/100</strong></td>
+      <td><strong>${grade(Number(m.score))}</strong></td>
+      <td><span class="status ${m.score>=40?"passed":"failed"}">${m.score>=40?"Pass":"Fail"}</span></td>
+      <td><div class="action-buttons"><button class="action-btn delete" data-delete-mark="${escapeHTML(m.student.regNo)}" data-mark-index="${m.index}" title="Delete marks"><i data-lucide="trash-2"></i></button></div></td>
+    </tr>`).join("");
+
+  showEmpty("marksEmpty", entries.length === 0);
+}
+
+/* FEES */
+
+function openFeeModal(regNo = "") {
+  if (!students.size) return showToast("Register a student first.");
+
+  const options = students.toArray().map(s => ({
+    value:s.regNo, label:`${s.name} (${s.regNo})`
+  }));
+
+  openModal("Record Fee Payment", [
+    {name:"student",label:"Select Student",type:"select",options,value:regNo || students.head.data.regNo},
+    {name:"amount",label:"Payment Amount (₹)",type:"number",min:1,placeholder:"Enter payment amount"},
+    {name:"method",label:"Payment Method",type:"select",options:["Cash","UPI","Bank Transfer","Card","Other"]},
+    {name:"date",label:"Payment Date",type:"date",value:today()},
+    {name:"reference",label:"Transaction Reference",placeholder:"Optional reference",required:false}
+  ], "payment");
+}
+
+function renderFees() {
+  const list = students.toArray();
+  const total = list.reduce((a,s)=>a+Number(s.totalFee),0);
+  const paid = list.reduce((a,s)=>a+Number(s.paidFee),0);
+  const balance = Math.max(0,total-paid);
+
+  $("totalFees").textContent = money(total);
+  $("collectedFees").textContent = money(paid);
+  $("outstandingFees").textContent = money(balance);
+  $("fullyPaidCount").textContent = list.filter(s=>s.paidFee>=s.totalFee).length;
+
+  $("feesTable").innerHTML = list.map(s => {
+    const remaining = Math.max(0,s.totalFee-s.paidFee);
+    const f = feeStatus(s);
+
+    return `<tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.regNo)}</td>
+      <td>${money(s.totalFee)}</td>
+      <td>${money(s.paidFee)}</td>
+      <td><strong>${money(remaining)}</strong></td>
+      <td><span class="status ${f[1]}">${f[0]}</span></td>
+      <td><button class="action-btn" data-record-payment="${escapeHTML(s.regNo)}" title="Record payment"><i data-lucide="plus"></i></button></td>
+    </tr>`;
+  }).join("");
+
+  showEmpty("feesEmpty", list.length===0);
+}
+
+/* TIMETABLE */
+
+function renderTimetable() {
+  const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const sorted = [...timetable].sort((a,b)=>days.indexOf(a.day)-days.indexOf(b.day) || a.time.localeCompare(b.time));
+
+  $("timetableTable").innerHTML = sorted.map(item => `
+    <tr>
+      <td><strong>${escapeHTML(item.day)}</strong></td>
+      <td>${escapeHTML(item.time)}</td>
+      <td>${escapeHTML(item.subject)}</td>
+      <td>${escapeHTML(item.faculty)}</td>
+      <td>${escapeHTML(item.room)}</td>
+      <td><button class="action-btn delete" data-delete-class="${escapeHTML(item.id)}"><i data-lucide="trash-2"></i></button></td>
+    </tr>`).join("");
+
+  showEmpty("timetableEmpty", sorted.length===0);
+}
+
+function openClassModal() {
+  openModal("Add Timetable Entry", [
+    {name:"day",label:"Day",type:"select",options:["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]},
+    {name:"time",label:"Time",type:"text",placeholder:"09:00 AM - 10:00 AM"},
+    {name:"subject",label:"Subject",placeholder:"Subject name"},
+    {name:"faculty",label:"Faculty",placeholder:"Faculty name"},
+    {name:"room",label:"Room",placeholder:"Room number"}
+  ],"class");
+}
+
+/* ANNOUNCEMENTS */
+
+function renderAnnouncements() {
+  $("announcementList").innerHTML = announcements.map(a => `
+    <article class="announcement-card">
+      <div class="announcement-icon"><i data-lucide="megaphone"></i></div>
+      <div class="announcement-content">
+        <h3>${escapeHTML(a.title)}</h3>
+        <p>${escapeHTML(a.message)}</p>
+        <small>${escapeHTML(a.category)} · ${escapeHTML(dateLabel(a.date))}</small>
+      </div>
+      <button class="action-btn delete" data-delete-announcement="${escapeHTML(a.id)}"><i data-lucide="trash-2"></i></button>
+    </article>`).join("");
+
+  showEmpty("announcementsEmpty", announcements.length===0);
+}
+
+function openAnnouncementModal() {
+  openModal("Publish Announcement", [
+    {name:"title",label:"Announcement Title",placeholder:"Enter notice title",full:true},
+    {name:"category",label:"Category",type:"select",options:["General Notice","Examination","Holiday","Fees","Events","Academic Update"]},
+    {name:"date",label:"Publish Date",type:"date",value:today()},
+    {name:"message",label:"Announcement Details",type:"textarea",full:true,placeholder:"Write your announcement..."}
+  ],"announcement");
+}
+
+/* REPORTS AND ACTIVITY */
+
+function renderReports() {
+  const list = students.toArray();
+  const scores = list.flatMap(s=>s.marks.map(m=>Number(m.score)));
+  const attendance = list.length ? Math.round(list.reduce((a,s)=>a+attendanceStats(s).rate,0)/list.length) : 0;
+  const avgMarks = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+  const total = list.reduce((a,s)=>a+s.totalFee,0);
+  const paid = list.reduce((a,s)=>a+s.paidFee,0);
+  const collection = total ? Math.round(paid/total*100) : 0;
+
+  $("reportStudents").textContent = list.length;
+  $("reportAttendance").textContent = attendance;
+  $("reportMarks").textContent = avgMarks;
+  $("reportCollection").textContent = collection + "%";
+
+  $("reportTable").innerHTML = list.map(s => {
+    const a = attendanceStats(s);
+    const balance = s.totalFee-s.paidFee;
+    const avg = averageMarks(s);
+    const status = balance===0 && a.rate>=75 && avg>=40;
+    return `<tr>
+      <td>${studentCell(s)}</td>
+      <td>${escapeHTML(s.regNo)}</td>
+      <td>${a.rate}%</td>
+      <td>${s.marks.length ? avg : "—"}</td>
+      <td>${money(balance)}</td>
+      <td><span class="status ${status?"paid":"pending"}">${status?"On Track":"Review"}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function renderActivity() {
+  const page = $("page-activity");
+  if (!page) return;
+
+  let container = $("activityContent");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "activityContent";
+    container.className = "panel";
+    page.appendChild(container);
+  }
+
+  container.innerHTML = activityLog.length
+    ? activityLog.map(a=>`<div style="padding:13px 3px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px">
+        <span style="font-size:11px">${escapeHTML(a.message)}</span>
+        <small style="font-size:9px;color:var(--muted)">${new Date(a.time).toLocaleString("en-IN")}</small>
+      </div>`).join("")
+    : `<div class="empty-state show"><i data-lucide="history"></i><strong>No activity recorded</strong><span>Your management actions will appear here.</span></div>`;
+}
+
+/* EXPORTS */
+
+function downloadFile(filename, content, type) {
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV() {
+  const rows = [
+    ["Registration ID","Name","Email","Phone","Course","Year","Attendance %","Average Marks","Total Fees","Paid Fees","Balance","Fee Status"]
+  ];
+
+  students.toArray().forEach(s=>{
+    const a = attendanceStats(s);
+    rows.push([
+      s.regNo,s.name,s.email,s.phone,s.course,s.year,a.rate,
+      averageMarks(s),s.totalFee,s.paidFee,s.totalFee-s.paidFee,feeStatus(s)[0]
+    ]);
+  });
+
+  const csv = rows.map(row=>row.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  downloadFile("StudyHub_Student_Report.csv","\uFEFF"+csv,"text/csv;charset=utf-8");
+  showToast("Student report exported.");
+}
+
+function exportBackup() {
+  const data = {
+    students:students.toArray(),
+    attendanceRecords,timetable,announcements,activityLog,institution
+  };
+  downloadFile("StudyHub_Backup.json",JSON.stringify(data,null,2),"application/json");
+  showToast("Workspace backup downloaded.");
+}
+
+/* RENDER ALL */
 
 function renderAll() {
   renderDashboard();
   renderStudents();
   renderAttendance();
-  renderAcademics();
-  renderSubjectNavigation();
-  renderFeeRecords();
+  renderMarks();
+  renderFees();
   renderTimetable();
-  renderSubjectPage();
+  renderAnnouncements();
+  renderReports();
+  renderActivity();
+  refreshIcons();
 }
 
-/* ==========================================
-   9. NAVIGATION
-========================================== */
+/* FORM SUBMISSION */
 
-function navigate(page) {
-  currentPage = page;
+$("modalForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const form = event.currentTarget;
 
-  document.querySelectorAll(".page").forEach(section => {
-    section.classList.add("hidden");
-  });
+  if (!form.reportValidity()) return;
 
-  const target = $(page + "Page");
-  if (target) target.classList.remove("hidden");
+  let success = false;
 
-  document.querySelectorAll(".nav-link[data-page]").forEach(button => {
-    button.classList.toggle("active", button.dataset.page === page);
-  });
-
-  const names = {
-    dashboard: "Overview",
-    students: "Students",
-    attendance: "Attendance",
-    academics: "Academic Results",
-    departments: "Departments",
-    fees: "Fee Management",
-    timetable: "Timetable",
-    subject: currentSubject || "Subject",
-    settings: "Settings"
-  };
-
-  $("pageTitle").textContent = names[page] || page;
-
-  if (page === "students" || page === "attendance" ||
-      page === "academics" || page === "fees") {
-    populateStudentDropdowns();
+  if (modalMode === "student") {
+    success = createStudent(form);
   }
 
-  if (page === "departments") renderDepartments();
-  if (page === "timetable") {
-    populateTimetableSelectors();
-    renderTimetable();
+  if (modalMode === "editStudent") {
+    success = updateStudent(form);
   }
 
-  if (page === "subject") renderSubjectPage();
+  if (modalMode === "marks") {
+    const regNo = fieldValue(form,"student");
+    const node = students.find(regNo);
+    const score = Number(fieldValue(form,"score"));
 
-  $("sidebar").classList.remove("open");
-  $("sidebarOverlay").classList.remove("show");
-}
-
-document.querySelectorAll("[data-page]").forEach(button => {
-  button.addEventListener("click", () => navigate(button.dataset.page));
-});
-
-document.querySelectorAll("[data-go]").forEach(button => {
-  button.addEventListener("click", () => navigate(button.dataset.go));
-});
-
-$("openSidebar").addEventListener("click", () => {
-  $("sidebar").classList.add("open");
-  $("sidebarOverlay").classList.add("show");
-});
-
-$("closeSidebar").addEventListener("click", () => {
-  $("sidebar").classList.remove("open");
-  $("sidebarOverlay").classList.remove("show");
-});
-
-$("sidebarOverlay").addEventListener("click", () => {
-  $("sidebar").classList.remove("open");
-  $("sidebarOverlay").classList.remove("show");
-});
-
-/* ==========================================
-   10. DARK MODE
-========================================== */
-
-function updateThemeButton() {
-  const dark = document.body.classList.contains("dark");
-  $("themeText").textContent = dark ? "Light mode" : "Dark mode";
-  $("themeToggle").firstChild.textContent = dark ? "☀ " : "☾ ";
-}
-
-$("themeToggle").addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-
-  localStorage.setItem(
-    "studenthub_theme",
-    document.body.classList.contains("dark") ? "dark" : "light"
-  );
-
-  updateThemeButton();
-});
-
-/* ==========================================
-   11. STUDENT DROPDOWNS
-========================================== */
-
-function populateStudentDropdowns() {
-  const ids = [
-    "attendanceStudent",
-    "resultStudent",
-    "feeStudent"
-  ];
-
-  ids.forEach(id => {
-    const select = $(id);
-    if (!select) return;
-
-    const previous = select.value;
-
-    select.innerHTML = '<option value="">Select student</option>';
-
-    students.forEach(student => {
-      const option = document.createElement("option");
-      option.value = student.id;
-      option.textContent = `${student.name} (${student.roll})`;
-      select.appendChild(option);
-    });
-
-    if (students.some(s => s.id === previous)) {
-      select.value = previous;
-    }
-  });
-
-  const subjectSelect = $("attendanceSubject");
-  subjectSelect.innerHTML = '<option value="">Select subject</option>';
-
-  (teacherData.subjects || []).forEach(subject => {
-    subjectSelect.add(new Option(subject, subject));
-  });
-
-  const ttSubject = $("ttSubject");
-  if (ttSubject) {
-    ttSubject.innerHTML = '<option value="">Select subject</option>';
-    (teacherData.subjects || []).forEach(subject => {
-      ttSubject.add(new Option(subject, subject));
-    });
-  }
-}
-
-/* ==========================================
-   12. DASHBOARD
-========================================== */
-
-function renderDashboard() {
-  $("totalStudents").textContent = students.length;
-  $("subjectCount").textContent = (teacherData.subjects || []).length;
-
-  const attendanceValues = students.flatMap(student =>
-    student.attendance.map(record =>
-      getPercentage(record.held, record.attended)
-    )
-  );
-
-  const avgAttendance = average(attendanceValues);
-
-  $("averageAttendance").textContent =
-    avgAttendance === null ? "—" : avgAttendance.toFixed(1) + "%";
-
-  const allResults = students.flatMap(student =>
-    student.results.map(result => Number(result.sgpa))
-  );
-
-  const avgSGPA = average(allResults);
-
-  $("averageSGPA").textContent =
-    avgSGPA === null ? "—" : avgSGPA.toFixed(2);
-
-  const container = $("dashboardSubjects");
-  container.innerHTML = "";
-
-  (teacherData.subjects || []).forEach(subject => {
-    const count = students.filter(s => s.subjects.includes(subject)).length;
-
-    const button = document.createElement("button");
-    button.className = "subject-card";
-    button.innerHTML = `
-      <strong>${escapeHTML(subject)}</strong>
-      <small>${count} enrolled students · Open workspace →</small>
-    `;
-
-    button.addEventListener("click", () => openSubject(subject));
-    container.appendChild(button);
-  });
-
-  $("recentStudents").innerHTML = students
-    .slice()
-    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-    .slice(0, 5)
-    .map(student => `
-      <tr>
-        <td>${escapeHTML(student.name)}</td>
-        <td>${escapeHTML(student.roll)}</td>
-        <td>${escapeHTML(student.year || "—")}</td>
-        <td>${escapeHTML(student.department || "—")}</td>
-        <td>${escapeHTML(student.section || "—")}</td>
-      </tr>
-    `).join("") || '<tr><td colspan="5">No student records yet.</td></tr>';
-}
-
-/* ==========================================
-   13. ADD / EDIT STUDENTS
-========================================== */
-
-$("studentForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  if (!currentTeacher) return;
-
-  const name = $("studentName").value.trim();
-  const roll = $("studentRoll").value.trim();
-  const email = $("studentEmail").value.trim();
-  const phone = $("studentPhone").value.trim();
-  const department = $("studentDepartment").value;
-  const year = $("studentYear").value;
-  const section = $("studentSection").value.trim().toUpperCase();
-  const subjects = selectedSubjects("studentSubjects");
-  const editId = $("editStudentId").value;
-
-  if (!name || !roll || !year) {
-    message("studentMessage", "Please complete the required fields.");
-    return;
-  }
-
-  const duplicate = students.find(s =>
-    s.roll.toLowerCase() === roll.toLowerCase() && s.id !== editId
-  );
-
-  if (duplicate) {
-    message("studentMessage", "This register number already exists.");
-    return;
-  }
-
-  try {
-    const existing = students.find(s => s.id === editId);
-
-    const studentData = {
-      roll,
-      name,
-      email,
-      phone,
-      department,
-      year,
-      section,
-      subjects,
-      attendance: existing?.attendance || [],
-      results: existing?.results || [],
-      fees: existing?.fees || [],
-      updatedAt: serverTimestamp()
-    };
-
-    if (editId) {
-      const oldRef = doc(db, "teachers", currentTeacher.uid, "students", editId);
-
-      if (editId !== roll) {
-        const newRef = doc(db, "teachers", currentTeacher.uid, "students", roll);
-
-        await setDoc(newRef, {
-          ...studentData,
-          createdAt: existing?.createdAt || serverTimestamp()
-        });
-
-        await deleteDoc(oldRef);
-      } else {
-        await setDoc(oldRef, studentData, { merge: true });
-      }
-
-      showToast("Student updated successfully!");
-    } else {
-      const newRef = doc(db, "teachers", currentTeacher.uid, "students", roll);
-
-      await setDoc(newRef, {
-        ...studentData,
-        createdAt: serverTimestamp()
-      });
-
-      showToast("Student added successfully!");
+    if (!node || score < 0 || score > 100) {
+      showToast("Please enter valid marks between 0 and 100.");
+      return;
     }
 
-    $("studentForm").reset();
-    $("editStudentId").value = "";
-    $("studentFormTitle").textContent = "Add New Student";
-    $("cancelStudentEdit").classList.add("hidden");
-
-    await refreshData();
-  } catch (error) {
-    showError(error);
-  }
-});
-
-function editStudent(id) {
-  const student = students.find(s => s.id === id);
-  if (!student) return;
-
-  $("editStudentId").value = id;
-  $("studentName").value = student.name || "";
-  $("studentRoll").value = student.roll || "";
-  $("studentEmail").value = student.email || "";
-  $("studentPhone").value = student.phone || "";
-  $("studentDepartment").value = student.department || "";
-  $("studentYear").value = student.year || "";
-  $("studentSection").value = student.section || "";
-
-  setSubjectPicker("studentSubjects", student.subjects || []);
-
-  $("studentFormTitle").textContent = "Edit Student";
-  $("cancelStudentEdit").classList.remove("hidden");
-
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-$("cancelStudentEdit").addEventListener("click", () => {
-  $("studentForm").reset();
-  $("editStudentId").value = "";
-  $("studentFormTitle").textContent = "Add New Student";
-  $("cancelStudentEdit").classList.add("hidden");
-});
-
-async function deleteStudent(id) {
-  const student = students.find(s => s.id === id);
-  if (!student) return;
-
-  if (!confirm(`Delete ${student.name}'s complete student record?`)) return;
-
-  try {
-    await deleteDoc(
-      doc(db, "teachers", currentTeacher.uid, "students", id)
-    );
-
-    showToast("Student deleted.");
-    await refreshData();
-  } catch (error) {
-    showError(error);
-  }
-}
-
-function renderStudents() {
-  const query = $("studentSearch").value.toLowerCase().trim();
-
-  const filtered = students.filter(s =>
-    [s.name, s.roll, s.email, s.department, s.year, s.section]
-      .join(" ").toLowerCase().includes(query)
-  );
-
-  $("studentCountLabel").textContent =
-    `${filtered.length} of ${students.length} records`;
-
-  $("studentEmpty").classList.toggle("hidden", filtered.length > 0);
-
-  $("studentTableBody").innerHTML = filtered.map(student => `
-    <tr>
-      <td><strong>${escapeHTML(student.name)}</strong></td>
-      <td>${escapeHTML(student.roll)}</td>
-      <td>${escapeHTML(student.email || "—")}</td>
-      <td>${escapeHTML(student.department || "—")}</td>
-      <td>${escapeHTML(student.year || "—")}</td>
-      <td>${escapeHTML(student.section || "—")}</td>
-      <td>
-        <button class="table-action" data-edit="${escapeHTML(student.id)}">Edit</button>
-        <button class="table-action delete" data-delete="${escapeHTML(student.id)}">Delete</button>
-      </td>
-    </tr>
-  `).join("");
-}
-
-$("studentSearch").addEventListener("input", renderStudents);
-
-$("studentTableBody").addEventListener("click", e => {
-  const edit = e.target.closest("[data-edit]");
-  const del = e.target.closest("[data-delete]");
-
-  if (edit) editStudent(edit.dataset.edit);
-  if (del) deleteStudent(del.dataset.delete);
-});
-
-/* ==========================================
-   14. ATTENDANCE
-========================================== */
-
-$("attendanceForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const id = $("attendanceStudent").value;
-  const subject = $("attendanceSubject").value;
-  const held = Number($("classesHeld").value);
-  const attended = Number($("classesAttended").value);
-
-  const student = students.find(s => s.id === id);
-
-  if (!student) {
-    message("attendanceMessage", "Select a student.");
-    return;
-  }
-
-  if (!subject || held < 0 || attended < 0 || attended > held) {
-    message("attendanceMessage", "Enter valid attendance details.");
-    return;
-  }
-
-  try {
-    const records = [...student.attendance];
-    const index = records.findIndex(r => r.subject === subject);
-
-    const record = {
-      subject,
-      held,
-      attended,
-      percentage: getPercentage(held, attended),
-      updatedAt: new Date().toISOString()
-    };
-
-    if (index >= 0) records[index] = record;
-    else records.push(record);
-
-    await saveStudentArray(id, "attendance", records);
-
-    $("attendanceForm").reset();
-    message("attendanceMessage", "Attendance saved successfully.", "success");
-
-    await refreshData();
-  } catch (error) {
-    showError(error);
-  }
-});
-
-function renderAttendance() {
-  const rows = students.flatMap(student =>
-    student.attendance.map((record, index) => ({
-      student,
-      record,
-      index
-    }))
-  );
-
-  $("attendanceTableBody").innerHTML = rows.map(({ student, record, index }) => `
-    <tr>
-      <td>${escapeHTML(student.name)}</td>
-      <td>${escapeHTML(student.roll)}</td>
-      <td>${escapeHTML(record.subject)}</td>
-      <td>${Number(record.held)}</td>
-      <td>${Number(record.attended)}</td>
-      <td>${getPercentage(record.held, record.attended).toFixed(1)}%</td>
-      <td><button class="table-action delete" data-delete-att="${escapeHTML(student.id)}" data-index="${index}">Delete</button></td>
-    </tr>
-  `).join("") || '<tr><td colspan="7">No attendance records.</td></tr>';
-}
-
-$("attendanceTableBody").addEventListener("click", async e => {
-  const button = e.target.closest("[data-delete-att]");
-  if (!button) return;
-
-  const student = students.find(s => s.id === button.dataset.deleteAtt);
-  if (!student || !confirm("Delete this attendance record?")) return;
-
-  const records = [...student.attendance];
-  records.splice(Number(button.dataset.index), 1);
-
-  try {
-    await saveStudentArray(student.id, "attendance", records);
-    await refreshData();
-    showToast("Attendance record deleted.");
-  } catch (error) {
-    showError(error);
-  }
-});
-
-/* ==========================================
-   15. ACADEMIC RESULTS
-========================================== */
-
-$("resultForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const id = $("resultStudent").value;
-  const semester = $("resultSemester").value;
-  const sgpa = Number($("resultSGPA").value);
-
-  const student = students.find(s => s.id === id);
-
-  if (!student || !semester || sgpa < 0 || sgpa > 10) {
-    message("resultMessage", "Enter valid result details.");
-    return;
-  }
-
-  try {
-    const records = [...student.results];
-    const index = records.findIndex(r => r.semester === semester);
-
-    const result = {
-      semester,
-      sgpa,
-      updatedAt: new Date().toISOString()
-    };
-
-    if (index >= 0) records[index] = result;
-    else records.push(result);
-
-    await saveStudentArray(id, "results", records);
-
-    $("resultForm").reset();
-    message("resultMessage", "Academic result saved successfully.", "success");
-
-    await refreshData();
-  } catch (error) {
-    showError(error);
-  }
-});
-
-function renderAcademics() {
-  const records = students.flatMap(student =>
-    student.results.map((result, index) => ({
-      student,
-      result,
-      index
-    }))
-  );
-
-  const filter = $("academicFilter").value;
-
-  const filtered = filter === "all"
-    ? records
-    : records.filter(r => r.result.semester === filter);
-
-  const avg = average(records.map(r => r.result.sgpa));
-
-  $("resultCount").textContent = records.length;
-  $("academicAverage").textContent = avg === null ? "—" : avg.toFixed(2);
-  $("resultStudents").textContent =
-    new Set(records.map(r => r.student.id)).size;
-
-  $("academicTableBody").innerHTML = filtered.map(({ student, result }) => `
-    <tr>
-      <td>${escapeHTML(student.name)}</td>
-      <td>${escapeHTML(student.roll)}</td>
-      <td>${escapeHTML(result.semester)}</td>
-      <td><strong>${Number(result.sgpa).toFixed(2)}</strong></td>
-      <td><button class="table-action delete" data-delete-result="${escapeHTML(student.id)}" data-semester="${escapeHTML(result.semester)}">Delete</button></td>
-    </tr>
-  `).join("") || '<tr><td colspan="5">No academic records.</td></tr>';
-}
-
-$("academicFilter").addEventListener("change", renderAcademics);
-
-$("academicTableBody").addEventListener("click", async e => {
-  const button = e.target.closest("[data-delete-result]");
-  if (!button) return;
-
-  const student = students.find(s => s.id === button.dataset.deleteResult);
-  if (!student || !confirm("Delete this result?")) return;
-
-  try {
-    const records = student.results.filter(
-      r => r.semester !== button.dataset.semester
-    );
-
-    await saveStudentArray(student.id, "results", records);
-    await refreshData();
-    showToast("Result deleted.");
-  } catch (error) {
-    showError(error);
-  }
-});
-
-/* ==========================================
-   16. DEPARTMENTS AND SECTIONS
-========================================== */
-
-$("departmentForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const name = $("departmentName").value.trim();
-  const code = $("departmentCode").value.trim().toUpperCase();
-  const sections = $("departmentSections").value
-    .split(",")
-    .map(s => s.trim().toUpperCase())
-    .filter(Boolean);
-
-  if (!name || !code) return;
-
-  if (departments.some(d => d.code.toLowerCase() === code.toLowerCase())) {
-    message("departmentMessage", "Department code already exists.");
-    return;
-  }
-
-  try {
-    departments.push({
-      id: crypto.randomUUID(),
-      name,
-      code,
-      sections
+    node.data.marks.push({
+      id:uid(),
+      subject:fieldValue(form,"subject"),
+      exam:fieldValue(form,"exam"),
+      score,
+      date:fieldValue(form,"date")
     });
 
-    await saveTeacherField("departments", departments);
-
-    $("departmentForm").reset();
-    message("departmentMessage", "Department saved.", "success");
-
-    renderDepartments();
-    populateTimetableSelectors();
-  } catch (error) {
-    showError(error);
-  }
-});
-
-async function deleteDepartment(id) {
-  const department = departments.find(d => d.id === id);
-  if (!department || !confirm(`Delete ${department.name}?`)) return;
-
-  try {
-    departments = departments.filter(d => d.id !== id);
-    await saveTeacherField("departments", departments);
-    renderDepartments();
-    populateTimetableSelectors();
-    showToast("Department deleted.");
-  } catch (error) {
-    showError(error);
-  }
-}
-
-function renderDepartments() {
-  $("departmentList").innerHTML = departments.map(d => `
-    <article class="record-card">
-      <h3>${escapeHTML(d.name)}</h3>
-      <p>Code: ${escapeHTML(d.code)}</p>
-      <p>Sections: ${escapeHTML((d.sections || []).join(", ") || "None")}</p>
-      <button class="table-action delete" data-delete-dept="${escapeHTML(d.id)}">Delete</button>
-    </article>
-  `).join("") || "<p>No departments created yet.</p>";
-}
-
-$("departmentList").addEventListener("click", e => {
-  const button = e.target.closest("[data-delete-dept]");
-  if (button) deleteDepartment(button.dataset.deleteDept);
-});
-
-/* ==========================================
-   17. FEE MANAGEMENT
-========================================== */
-
-$("feeForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const id = $("feeStudent").value;
-  const total = Number($("feeTotal").value);
-  const paid = Number($("feePaid").value);
-
-  const student = students.find(s => s.id === id);
-
-  if (!student || total < 0 || paid <= 0) {
-    message("feeMessage", "Enter valid payment details.");
-    return;
+    recordActivity(`Updated ${fieldValue(form,"subject")} marks for ${node.data.name}`);
+    success = true;
   }
 
-  const previousTotal = student.fees.length
-    ? Number(student.fees[0].total) : total;
+  if (modalMode === "payment") {
+    const node = students.find(fieldValue(form,"student"));
+    const amount = Number(fieldValue(form,"amount"));
 
-  const alreadyPaid = student.fees.reduce(
-    (sum, item) => sum + Number(item.amount), 0
-  );
+    if (!node || amount <= 0) {
+      showToast("Enter a valid payment.");
+      return;
+    }
 
-  if (total !== previousTotal) {
-    message("feeMessage", "The total fee must match the existing fee record. Edit it consistently before adding another payment.");
-    return;
+    if (node.data.paidFee + amount > node.data.totalFee) {
+      showToast("Payment exceeds the student's outstanding balance.");
+      return;
+    }
+
+    node.data.paidFee += amount;
+    recordActivity(`Recorded ${money(amount)} fee payment for ${node.data.name}`);
+    success = true;
   }
 
-  if (alreadyPaid + paid > total) {
-    message("feeMessage", "Payment exceeds the remaining fee balance.");
-    return;
-  }
-
-  try {
-    const fees = [...student.fees, {
-      id: crypto.randomUUID(),
-      total,
-      amount: paid,
-      date: $("feeDate").value,
-      method: $("feeMethod").value,
-      reference: $("feeReference").value.trim(),
-      createdAt: new Date().toISOString()
-    }];
-
-    await saveStudentArray(id, "fees", fees);
-
-    $("feeForm").reset();
-    $("feeDate").value = dateToday();
-
-    message("feeMessage", "Payment recorded successfully.", "success");
-
-    await refreshData();
-  } catch (error) {
-    showError(error);
-  }
-});
-
-function renderFeeRecords() {
-  let total = 0;
-  let collected = 0;
-
-  $("feeTableBody").innerHTML = students.map(student => {
-    const studentTotal = student.fees.length
-      ? Number(student.fees[0].total) : 0;
-
-    const paid = student.fees.reduce(
-      (sum, item) => sum + Number(item.amount), 0
-    );
-
-    total += studentTotal;
-    collected += paid;
-
-    return `
-      <tr>
-        <td>${escapeHTML(student.name)}</td>
-        <td>${escapeHTML(student.roll)}</td>
-        <td>${money(studentTotal)}</td>
-        <td>${money(paid)}</td>
-        <td>${money(Math.max(0, studentTotal - paid))}</td>
-        <td><button class="table-action" data-fee-history="${escapeHTML(student.id)}">History</button></td>
-      </tr>
-    `;
-  }).join("") || '<tr><td colspan="6">No fee records.</td></tr>';
-
-  $("totalFees").textContent = money(total);
-  $("collectedFees").textContent = money(collected);
-  $("pendingFees").textContent = money(total - collected);
-
-  const payments = students.flatMap(student =>
-    student.fees.map(fee => ({ student, fee }))
-  ).sort((a, b) => String(b.fee.date).localeCompare(String(a.fee.date)));
-
-  $("paymentHistory").innerHTML = payments.map(({ student, fee }) => `
-    <tr>
-      <td>${escapeHTML(student.name)}</td>
-      <td>${escapeHTML(fee.date)}</td>
-      <td>${money(fee.amount)}</td>
-      <td>${escapeHTML(fee.method)}</td>
-      <td>${escapeHTML(fee.reference || "—")}</td>
-    </tr>
-  `).join("") || '<tr><td colspan="5">No payments recorded.</td></tr>';
-}
-
-$("feeTableBody").addEventListener("click", e => {
-  const button = e.target.closest("[data-fee-history]");
-  if (!button) return;
-
-  const student = students.find(s => s.id === button.dataset.feeHistory);
-  if (!student) return;
-
-  const details = student.fees.map(f =>
-    `${f.date}: ${money(f.amount)} (${f.method})`
-  ).join("\n") || "No payments.";
-
-  alert(`${student.name}\n\n${details}`);
-});
-
-/* ==========================================
-   18. TIMETABLE
-========================================== */
-
-function initializeTimetableTimes() {
-  const start = $("ttStart");
-  const end = $("ttEnd");
-
-  start.innerHTML = "";
-  end.innerHTML = "";
-
-  PERIODS.forEach(period => {
-    start.add(new Option(period.start, period.start));
-    end.add(new Option(period.end, period.end));
-  });
-}
-
-function populateTimetableSelectors() {
-  const departmentSelect = $("timetableDepartment");
-  const sectionSelect = $("timetableSection");
-
-  if (!departmentSelect || !sectionSelect) return;
-
-  const previousDept = departmentSelect.value;
-
-  departmentSelect.innerHTML = departments.map(d =>
-    `<option value="${escapeHTML(d.code)}">${escapeHTML(d.name)} (${escapeHTML(d.code)})</option>`
-  ).join("");
-
-  if (!departments.length) {
-    departmentSelect.innerHTML = '<option value="">Create a department first</option>';
-    sectionSelect.innerHTML = '<option value="">No sections</option>';
-    return;
-  }
-
-  if (departments.some(d => d.code === previousDept)) {
-    departmentSelect.value = previousDept;
-  }
-
-  updateSections();
-}
-
-function updateSections() {
-  const department = departments.find(
-    d => d.code === $("timetableDepartment").value
-  );
-
-  $("timetableSection").innerHTML = (department?.sections || ["A"]).map(s =>
-    `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`
-  ).join("");
-}
-
-$("timetableDepartment").addEventListener("change", updateSections);
-
-function timetableContext() {
-  return {
-    department: $("timetableDepartment").value,
-    section: $("timetableSection").value
-  };
-}
-
-$("timetableForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const context = timetableContext();
-
-  if (!context.department || !context.section) {
-    message("timetableMessage", "Create a department and section first.");
-    return;
-  }
-
-  const day = $("ttDay").value;
-  const start = $("ttStart").value;
-  const end = $("ttEnd").value;
-  const subject = $("ttSubject").value;
-
-  const startMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
-  const endMinutes = Number(end.slice(0, 2)) * 60 + Number(end.slice(3));
-
-  if (endMinutes <= startMinutes) {
-    message("timetableMessage", "End time must be after start time.");
-    return;
-  }
-
-  const overlap = timetable.some(item => {
-    if (
-      item.department !== context.department ||
-      item.section !== context.section ||
-      item.day !== day
-    ) return false;
-
-    const a = Number(item.start.slice(0, 2)) * 60 + Number(item.start.slice(3));
-    const b = Number(item.end.slice(0, 2)) * 60 + Number(item.end.slice(3));
-
-    return startMinutes < b && endMinutes > a;
-  });
-
-  if (overlap) {
-    message("timetableMessage", "This time overlaps another period.");
-    return;
-  }
-
-  try {
+  if (modalMode === "class") {
     timetable.push({
-      id: crypto.randomUUID(),
-      ...context,
-      day,
-      start,
-      end,
-      subject,
-      teacher: $("ttTeacher").value.trim(),
-      room: $("ttRoom").value.trim()
+      id:uid(),
+      day:fieldValue(form,"day"),
+      time:fieldValue(form,"time"),
+      subject:fieldValue(form,"subject"),
+      faculty:fieldValue(form,"faculty"),
+      room:fieldValue(form,"room")
     });
+    recordActivity("Added a timetable entry.");
+    success = true;
+  }
 
-    await saveTeacherField("timetable", timetable);
+  if (modalMode === "announcement") {
+    announcements.unshift({
+      id:uid(),
+      title:fieldValue(form,"title"),
+      category:fieldValue(form,"category"),
+      date:fieldValue(form,"date"),
+      message:fieldValue(form,"message")
+    });
+    recordActivity("Published a new announcement.");
+    success = true;
+  }
 
-    $("timetableForm").reset();
-    message("timetableMessage", "Period added successfully.", "success");
-
-    renderTimetable();
-  } catch (error) {
-    showError(error);
+  if (success) {
+    closeModal();
+    saveData();
+    renderAll();
+    showToast("Changes saved successfully.");
   }
 });
 
-async function deletePeriod(id) {
-  if (!confirm("Delete this timetable period?")) return;
+/* EVENT LISTENERS */
 
-  try {
-    timetable = timetable.filter(p => p.id !== id);
-    await saveTeacherField("timetable", timetable);
-    renderTimetable();
-    showToast("Period deleted.");
-  } catch (error) {
-    showError(error);
+document.querySelectorAll(".nav-link").forEach(button => {
+  button.addEventListener("click",()=>showPage(button.dataset.page));
+});
+
+document.querySelectorAll("[data-goto]").forEach(button=>{
+  button.addEventListener("click",()=>showPage(button.dataset.goto));
+});
+
+$("topAddBtn").addEventListener("click",openAddStudent);
+$("addStudentBtn").addEventListener("click",openAddStudent);
+$("closeModal").addEventListener("click",closeModal);
+$("cancelModal").addEventListener("click",closeModal);
+
+$("modalOverlay").addEventListener("click",event=>{
+  if (event.target === $("modalOverlay")) closeModal();
+});
+
+document.addEventListener("keydown",event=>{
+  if (event.key==="Escape") closeModal();
+});
+
+$("menuBtn").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
+
+$("studentSearch").addEventListener("input",renderStudents);
+$("courseFilter").addEventListener("change",renderStudents);
+$("yearFilter").addEventListener("change",renderStudents);
+
+$("clearFilters").addEventListener("click",()=>{
+  $("studentSearch").value="";
+  $("courseFilter").value="";
+  $("yearFilter").value="";
+  renderStudents();
+});
+
+$("attendanceDate").addEventListener("change",renderAttendance);
+$("saveAttendanceBtn").addEventListener("click",saveAttendance);
+
+$("addMarksBtn").addEventListener("click",()=>openMarksModal());
+$("recordPaymentBtn").addEventListener("click",()=>openFeeModal());
+$("addClassBtn").addEventListener("click",openClassModal);
+$("addAnnouncementBtn").addEventListener("click",openAnnouncementModal);
+
+$("exportBtn").addEventListener("click",exportCSV);
+$("studentExportBtn").addEventListener("click",exportCSV);
+$("reportExportBtn").addEventListener("click",exportCSV);
+$("backupBtn").addEventListener("click",exportBackup);
+
+document.querySelectorAll("[data-action]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    const action = button.dataset.action;
+    if (action==="add") openAddStudent();
+    else if (action==="attendance") showPage("attendance");
+    else if (action==="marks") showPage("marks");
+    else if (action==="fees") showPage("fees");
+    else if (action==="linkedlist") showPage("students");
+    else if (action==="search") {
+      showPage("students");
+      $("studentSearch").focus();
+    }
+    else if (action==="export") exportCSV();
+  });
+});
+
+document.addEventListener("click",event=>{
+  const edit = event.target.closest("[data-edit-student]");
+  const remove = event.target.closest("[data-delete-student]");
+  const payment = event.target.closest("[data-record-payment]");
+  const markDelete = event.target.closest("[data-delete-mark]");
+  const classDelete = event.target.closest("[data-delete-class]");
+  const announcementDelete = event.target.closest("[data-delete-announcement]");
+
+  if (edit) openEditStudent(edit.dataset.editStudent);
+
+  if (remove) deleteStudent(remove.dataset.deleteStudent);
+
+  if (payment) openFeeModal(payment.dataset.recordPayment);
+
+  if (markDelete) {
+    const node = students.find(markDelete.dataset.deleteMark);
+    const index = Number(markDelete.dataset.markIndex);
+    if (node && confirm("Delete this examination result?")) {
+      node.data.marks.splice(index,1);
+      recordActivity(`Deleted an examination result for ${node.data.name}`);
+      renderAll();
+      showToast("Result deleted.");
+    }
   }
-}
 
-function renderTimetable() {
-  const container = $("timetableGrid");
-  if (!container) return;
+  if (classDelete) {
+    if (confirm("Delete this timetable entry?")) {
+      timetable = timetable.filter(item=>item.id!==classDelete.dataset.deleteClass);
+      recordActivity("Deleted a timetable entry.");
+      renderAll();
+      showToast("Class entry deleted.");
+    }
+  }
 
-  const { department, section } = timetableContext();
+  if (announcementDelete) {
+    if (confirm("Delete this announcement?")) {
+      announcements = announcements.filter(item=>item.id!==announcementDelete.dataset.deleteAnnouncement);
+      recordActivity("Deleted an announcement.");
+      renderAll();
+      showToast("Announcement deleted.");
+    }
+  }
+});
 
-  const filtered = timetable.filter(item =>
-    item.department === department && item.section === section
+/* SETTINGS */
+
+$("saveSettingsBtn").addEventListener("click",()=>{
+  institution.name = $("institutionName").value.trim() || "StudyHub Institution";
+  institution.year = $("academicYear").value.trim() || "2026–2027";
+  saveData();
+  recordActivity("Updated institution preferences.");
+  showToast("Preferences saved.");
+});
+
+$("resetBtn").addEventListener("click",()=>{
+  if (!confirm("Are you sure? This will permanently delete ALL StudyHub data saved in this browser.")) return;
+
+  localStorage.removeItem(STORAGE_KEY);
+  students = new StudentLinkedList();
+  attendanceRecords = {};
+  timetable = [];
+  announcements = [];
+  activityLog = [];
+  institution = {name:"StudyHub Institution",year:"2026–2027"};
+
+  renderAll();
+  showToast("Portal data has been reset.");
+});
+
+$("themeBtn").addEventListener("click",()=>{
+  document.body.classList.toggle("dark");
+  const dark = document.body.classList.contains("dark");
+  localStorage.setItem("studyhub_theme",dark?"dark":"light");
+  $("themeBtn").innerHTML = dark
+    ? '<i data-lucide="sun"></i>'
+    : '<i data-lucide="moon"></i>';
+  refreshIcons();
+});
+
+$("notificationBtn").addEventListener("click",()=>{
+  const unpaid = students.toArray().filter(s=>s.paidFee<s.totalFee).length;
+  const unmarked = students.toArray().filter(s=>!attendanceRecords[today()]?.[s.regNo]).length;
+
+  alert(
+    "STUDYHUB NOTIFICATIONS\n\n" +
+    "Students with pending fees: " + unpaid + "\n" +
+    "Students awaiting today's attendance: " + unmarked + "\n" +
+    "Announcements: " + announcements.length
   );
-
-  container.innerHTML = DAYS.map(day => {
-    const records = filtered.filter(item => item.day === day)
-      .sort((a, b) => a.start.localeCompare(b.start));
-
-    return `
-      <div class="day-schedule">
-        <div class="day-title">${day}</div>
-        <div class="period-list">
-          ${records.map(item => `
-            <div class="period-card">
-              <strong>${escapeHTML(item.subject)}</strong>
-              <small>${escapeHTML(item.start)} – ${escapeHTML(item.end)}</small>
-              <small>${escapeHTML(item.teacher || "Faculty not specified")}</small>
-              <small>Room: ${escapeHTML(item.room || "Not specified")}</small>
-              <button class="table-action delete" data-delete-period="${escapeHTML(item.id)}">Remove</button>
-            </div>
-          `).join("") || '<p>No periods scheduled.</p>'}
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-$("timetableGrid").addEventListener("click", e => {
-  const button = e.target.closest("[data-delete-period]");
-  if (button) deletePeriod(button.dataset.deletePeriod);
 });
 
-$("timetableDepartment").addEventListener("change", renderTimetable);
-$("timetableSection").addEventListener("change", renderTimetable);
+/* INITIALIZATION */
 
-$("printTimetable").addEventListener("click", () => window.print());
+function initializePortal() {
+  loadData();
 
-/* ==========================================
-   19. SUBJECT WORKSPACES
-========================================== */
-
-function renderSubjectNavigation() {
-  $("subjectNavigation").innerHTML = (teacherData.subjects || []).map(subject => `
-    <button class="nav-link" data-subject="${escapeHTML(subject)}">
-      ◈ <span>${escapeHTML(subject)}</span>
-    </button>
-  `).join("");
-}
-
-$("subjectNavigation").addEventListener("click", e => {
-  const button = e.target.closest("[data-subject]");
-  if (button) openSubject(button.dataset.subject);
-});
-
-function openSubject(subject) {
-  currentSubject = subject;
-  navigate("subject");
-
-  document.querySelectorAll("[data-subject]").forEach(button => {
-    button.classList.toggle("active", button.dataset.subject === subject);
+  $("todayDate").textContent = new Date().toLocaleDateString("en-IN",{
+    weekday:"long",day:"numeric",month:"long",year:"numeric"
   });
 
-  $("pageTitle").textContent = subject;
-  $("subjectPageTitle").textContent = subject;
-}
+  $("attendanceDate").value = today();
+  $("institutionName").value = institution.name;
+  $("academicYear").value = institution.year;
 
-function renderSubjectPage() {
-  const subject = currentSubject;
-  if (!subject) return;
-
-  const assigned = students.filter(s => s.subjects.includes(subject));
-
-  const attendance = assigned.flatMap(s =>
-    s.attendance.filter(a => a.subject === subject)
-      .map(a => getPercentage(a.held, a.attended))
-  );
-
-  const results = assigned.flatMap(s => s.results.map(r => Number(r.sgpa)));
-
-  const avgAttendance = average(attendance);
-  const avgSGPA = average(results);
-
-  $("subjectPageTitle").textContent = subject;
-  $("subjectPageDescription").textContent =
-    `Student records and performance for ${subject}.`;
-
-  $("subjectStudents").textContent = assigned.length;
-  $("subjectAttendance").textContent =
-    avgAttendance === null ? "—" : avgAttendance.toFixed(1) + "%";
-
-  $("subjectMarks").textContent =
-    avgSGPA === null ? "—" : avgSGPA.toFixed(2);
-
-  $("subjectTableBody").innerHTML = assigned.map(student => {
-    const record = student.attendance.find(a => a.subject === subject);
-
-    const sgpa = average(student.results.map(r => Number(r.sgpa)));
-
-    return `
-      <tr>
-        <td>${escapeHTML(student.name)}</td>
-        <td>${escapeHTML(student.roll)}</td>
-        <td>${escapeHTML(student.year || "—")}</td>
-        <td>${record ? getPercentage(record.held, record.attended).toFixed(1) + "%" : "—"}</td>
-        <td>${sgpa === null ? "—" : sgpa.toFixed(2)}</td>
-      </tr>
-    `;
-  }).join("") || '<tr><td colspan="5">No students assigned.</td></tr>';
-}
-
-/* ==========================================
-   20. SETTINGS
-========================================== */
-
-$("settingsForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const name = $("settingsNameInput").value.trim();
-  const subjects = selectedSubjects("settingsSubjects");
-
-  if (!name || !subjects.length) {
-    message("settingsMessage", "Enter a name and select at least one subject.");
-    return;
+  const savedTheme = localStorage.getItem("studyhub_theme");
+  if (savedTheme==="dark") {
+    document.body.classList.add("dark");
+    $("themeBtn").innerHTML='<i data-lucide="sun"></i>';
   }
 
-  try {
-    await updateProfile(currentTeacher, { displayName: name });
+  const courseFilter = $("courseFilter");
+  const courses = [...new Set(students.toArray().map(s=>s.course))];
 
-    await setDoc(teacherDoc(currentTeacher.uid), {
-      name,
-      subjects,
-      email: currentTeacher.email,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+  courses.forEach(course=>{
+    const option = document.createElement("option");
+    option.value=course;
+    option.textContent=course;
+    courseFilter.appendChild(option);
+  });
 
-    teacherData.name = name;
-    teacherData.subjects = subjects;
-
-    updateProfileUI();
-    renderAll();
-    populateStudentDropdowns();
-
-    message("settingsMessage", "Profile updated successfully.", "success");
-    showToast("Settings saved.");
-  } catch (error) {
-    showError(error);
-  }
-});
-
-/* ==========================================
-   21. FIRESTORE SAVE HELPERS
-========================================== */
-
-async function saveStudentArray(id, field, values) {
-  const ref = doc(
-    db, "teachers", currentTeacher.uid, "students", id
-  );
-
-  await setDoc(ref, {
-    [field]: values,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-}
-
-async function saveTeacherField(field, value) {
-  await setDoc(teacherDoc(currentTeacher.uid), {
-    [field]: value,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-
-  teacherData[field] = value;
-}
-
-/* ==========================================
-   22. REFRESH DATA
-========================================== */
-
-async function refreshData() {
-  await loadWorkspace();
-  updateProfileUI();
   renderAll();
-  populateStudentDropdowns();
-  renderDepartments();
-  populateTimetableSelectors();
-  renderTimetable();
 }
 
-/* ==========================================
-   23. FINAL INITIALIZATION
-========================================== */
-
-console.log("StudentHub initialized.");
+initializePortal();
