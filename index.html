@@ -28,7 +28,10 @@
   <main>
     <header class="top">
       <div><h2 id="ttl">Welcome back, Student! 👋</h2><p id="sub">Here’s what’s happening with your records.</p></div>
-      <div class="pill">Data Structures · Mini-Project</div>
+            <div class="hdr-r">
+        <button class="pill" id="themeBtn" type="button" aria-label="Switch theme">☀️ Light mode</button>
+        <div class="pill">Data Structures · Mini-Project</div>
+      </div>
     </header>
 
     <section class="page" id="dashboard">
@@ -49,9 +52,18 @@
     <section class="page" id="add">
       <div class="card"><h3>Add a new student</h3>
         <p class="panel-note">The new record is attached to the end of the list. Registration numbers must be unique.</p>
-        <form id="fAdd" novalidate>
+                <form id="fAdd" novalidate>
           <label>Registration number<input id="aReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
           <label>Name<input id="aName" placeholder="Full name" autocomplete="off"></label>
+          <label>Course
+            <select id="aCourse">
+              <option value="">Select course</option>
+              <option>CSECS</option>
+              <option>AIML</option>
+              <option>CSBS</option>
+              <option>DS</option>
+            </select>
+          </label>
           <label>Marks (0 to 100)<input id="aMarks" type="number" min="0" max="100" step="0.5" placeholder="e.g. 86"></label>
           <button class="btn" type="submit">Add student</button>
         </form></div>
@@ -80,7 +92,7 @@
     <section class="page" id="records">
       <div class="card"><h3>All student records</h3>
         <div class="chain" id="chain" aria-label="Linked list diagram"></div>
-        <div class="tw"><table><thead><tr><th>#</th><th>Reg. no.</th><th>Name</th><th>Marks</th><th>Result</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+        <div class="tw"><table><thead><tr><th>#</th><th>Reg. no.</th><th>Name</th><th>Course</th><th>Marks</th><th>Result</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
         <div class="empty" id="none" hidden>The list is empty. Add a student to create the first node.</div></div>
     </section>
 
