@@ -1,328 +1,104 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f7f6fc">
-  <meta name="description" content="StudyHub Student Management Portal">
-  <title>StudyHub | Student Management Portal</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Record Management System</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-<div class="app-shell">
-
-  <aside class="sidebar" id="sidebar">
-    <div class="brand">
-      <div class="brand-logo"><i data-lucide="graduation-cap"></i></div>
-      <div>
-        <h2>StudyHub</h2>
-        <span>STUDENT MANAGEMENT</span>
-      </div>
-    </div>
-
-    <div class="side-label">MAIN MENU</div>
-    <nav class="navigation">
-      <button class="nav-link active" data-page="dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</button>
-      <button class="nav-link" data-page="students"><i data-lucide="users"></i> Students</button>
-      <button class="nav-link" data-page="attendance"><i data-lucide="calendar-check"></i> Attendance</button>
-      <button class="nav-link" data-page="marks"><i data-lucide="chart-no-axes-column-increasing"></i> Marks & Results</button>
-      <button class="nav-link" data-page="fees"><i data-lucide="wallet"></i> Fee Management</button>
-      <button class="nav-link" data-page="timetable"><i data-lucide="calendar-days"></i> Timetable</button>
+<div class="shell">
+  <aside>
+    <div class="logo" aria-hidden="true">🎓</div>
+    <nav aria-label="Main">
+      <a href="#dashboard" data-p="dashboard"><i>▦</i>Dashboard</a>
+      <a href="#add" data-p="add"><i>＋</i>Add Student</a>
+      <a href="#search" data-p="search"><i>⌕</i>Search</a>
+      <a href="#delete" data-p="delete"><i>✕</i>Delete</a>
+      <a href="#records" data-p="records"><i>☰</i>All Records</a>
+      <a href="#source" data-p="source"><i>{ }</i>C Source</a>
+      <a href="#exit" data-p="exit"><i>⏻</i>Exit</a>
     </nav>
-
-    <div class="side-label">CAMPUS</div>
-    <nav class="navigation">
-      <button class="nav-link" data-page="announcements"><i data-lucide="megaphone"></i> Announcements</button>
-      <button class="nav-link" data-page="reports"><i data-lucide="file-chart-column"></i> Reports</button>
-      <button class="nav-link" data-page="settings"><i data-lucide="settings"></i> Settings</button>
-    </nav>
-
-    <div class="sidebar-bottom">
-      <div class="system-card">
-        <span class="online-dot"></span>
-        <div><strong>Portal operational</strong><span>Local data storage active</span></div>
-      </div>
-      <div class="profile">
-        <div class="avatar">AD</div>
-        <div><strong>Administrator</strong><span>Management workspace</span></div>
-        <i data-lucide="chevron-down"></i>
-      </div>
-    </div>
+    <div class="quote"><b>“</b>Every node points to the next one.</div>
   </aside>
 
-  <main class="main-content">
-    <header class="topbar">
-      <div class="top-left">
-        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Toggle sidebar"><i data-lucide="menu"></i></button>
-        <div>
-          <div class="breadcrumb">STUDYHUB <span>/</span> <b id="currentSection">Dashboard</b></div>
-          <div class="top-caption">Academic administration workspace</div>
-        </div>
-      </div>
-      <div class="top-actions">
-        <div class="live-status"><span class="online-dot"></span> SYSTEM ACTIVE</div>
-        <button class="icon-btn" id="themeBtn" title="Toggle theme"><i data-lucide="moon"></i></button>
-        <button class="icon-btn notification-btn" id="notificationBtn" title="Notifications"><i data-lucide="bell"></i><span class="notification-dot"></span></button>
-        <button class="primary-btn" id="topAddBtn"><i data-lucide="plus"></i> Add Student</button>
-      </div>
+  <main>
+    <header class="top">
+      <div><h2 id="ttl">Welcome back, Student! 👋</h2><p id="sub">Here’s what’s happening with your records.</p></div>
+      <div class="pill">Data Structures · Mini-Project</div>
     </header>
 
-    <div class="page-container">
-
-      <!-- DASHBOARD -->
-      <section class="page active" id="page-dashboard">
-        <div class="welcome-row">
-          <div>
-            <div class="eyebrow">OVERVIEW / 01</div>
-            <h1>Welcome to StudyHub</h1>
-            <p>Here's what's happening across your academic workspace.</p>
-          </div>
-          <div class="date-display"><i data-lucide="calendar-days"></i><span id="todayDate"></span></div>
-        </div>
-
-        <div class="stats-grid">
-          <article class="stat-card purple">
-            <div class="stat-top"><span>Total Students</span><span class="stat-icon"><i data-lucide="users"></i></span></div>
-            <div class="stat-number" id="totalStudents">0</div>
-            <div class="stat-foot">Registered student profiles</div>
-          </article>
-          <article class="stat-card blue">
-            <div class="stat-top"><span>Average Attendance</span><span class="stat-icon"><i data-lucide="calendar-check"></i></span></div>
-            <div class="stat-number"><span id="averageAttendance">0</span><small>%</small></div>
-            <div class="stat-foot">Across all student records</div>
-          </article>
-          <article class="stat-card green">
-            <div class="stat-top"><span>Average Marks</span><span class="stat-icon"><i data-lucide="graduation-cap"></i></span></div>
-            <div class="stat-number"><span id="averageMarks">0</span><small>/100</small></div>
-            <div class="stat-foot">Overall academic performance</div>
-          </article>
-          <article class="stat-card orange">
-            <div class="stat-top"><span>Pending Fees</span><span class="stat-icon"><i data-lucide="wallet"></i></span></div>
-            <div class="stat-number currency-number" id="pendingFees">₹0</div>
-            <div class="stat-foot">Outstanding fee balance</div>
-          </article>
-        </div>
-
-        <div class="dashboard-grid">
-          <article class="panel chart-panel">
-            <div class="panel-heading">
-              <div><h3>Academic Performance</h3><p>Student marks distribution</p></div>
-              <span class="panel-tag">CURRENT RECORDS</span>
-            </div>
-            <div class="chart-wrap"><canvas id="performanceChart"></canvas></div>
-          </article>
-
-          <article class="panel attendance-panel">
-            <div class="panel-heading">
-              <div><h3>Attendance Overview</h3><p>Overall attendance status</p></div>
-              <i data-lucide="calendar-check" class="heading-icon"></i>
-            </div>
-            <div class="attendance-ring" id="attendanceRing">
-              <div><strong id="attendanceRingValue">0%</strong><span>Attendance</span></div>
-            </div>
-            <div class="attendance-summary">
-              <div><span class="legend-dot present-dot"></span> Present <b id="presentTotal">0</b></div>
-              <div><span class="legend-dot absent-dot"></span> Absent <b id="absentTotal">0</b></div>
-            </div>
-          </article>
-        </div>
-
-        <article class="panel">
-          <div class="panel-heading">
-            <div><h3>Recent Students</h3><p>Recently added student profiles</p></div>
-            <button class="text-btn" data-goto="students">View all <i data-lucide="arrow-up-right"></i></button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>STUDENT</th><th>REGISTRATION ID</th><th>COURSE</th><th>ATTENDANCE</th><th>FEE STATUS</th></tr></thead>
-              <tbody id="recentStudentsTable"></tbody>
-            </table>
-          </div>
-          <div class="empty-state" id="recentEmpty"><i data-lucide="users"></i><strong>No student records yet</strong><span>Add your first student to populate the dashboard.</span></div>
-        </article>
-
-        <div class="quick-grid">
-          <button class="quick-action" data-action="add"><span class="quick-icon violet"><i data-lucide="user-plus"></i></span><strong>Register Student</strong><small>Create a new student profile</small></button>
-          <button class="quick-action" data-action="attendance"><span class="quick-icon blue"><i data-lucide="calendar-check"></i></span><strong>Mark Attendance</strong><small>Record daily attendance</small></button>
-          <button class="quick-action" data-action="marks"><span class="quick-icon green"><i data-lucide="file-pen-line"></i></span><strong>Update Marks</strong><small>Manage academic results</small></button>
-          <button class="quick-action" data-action="fees"><span class="quick-icon orange"><i data-lucide="wallet"></i></span><strong>Manage Fees</strong><small>Track student payments</small></button>
-        </div>
-      </section>
-
-      <!-- STUDENTS -->
-      <section class="page" id="page-students">
-        <div class="welcome-row">
-          <div><div class="eyebrow">ACADEMIC DATABASE / 02</div><h1>Student Directory</h1><p>Manage student profiles and personal information.</p></div>
-          <button class="primary-btn" id="addStudentBtn"><i data-lucide="plus"></i> Register Student</button>
-        </div>
-        <div class="filter-bar">
-          <div class="search-box"><i data-lucide="search"></i><input id="studentSearch" placeholder="Search name or registration ID..."></div>
-          <select id="courseFilter"><option value="">All Courses</option></select>
-          <select id="yearFilter"><option value="">All Years</option><option>1st Year</option><option>2nd Year</option><option>3rd Year</option><option>4th Year</option></select>
-          <button class="icon-btn" id="clearFilters" title="Clear filters"><i data-lucide="rotate-ccw"></i></button>
-        </div>
-        <article class="panel">
-          <div class="panel-heading"><div><h3>All Students</h3><p><span id="studentCount">0</span> student records found</p></div><button class="secondary-btn" id="studentExportBtn"><i data-lucide="download"></i> Export CSV</button></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>STUDENT</th><th>REGISTRATION ID</th><th>COURSE / YEAR</th><th>EMAIL</th><th>ATTENDANCE</th><th>FEE STATUS</th><th>ACTIONS</th></tr></thead>
-              <tbody id="studentsTable"></tbody>
-            </table>
-          </div>
-          <div class="empty-state" id="studentsEmpty"><i data-lucide="user-round-search"></i><strong>No matching students</strong><span>Try changing your search or register a new student.</span></div>
-        </article>
-      </section>
-
-      <!-- ATTENDANCE -->
-      <section class="page" id="page-attendance">
-        <div class="welcome-row">
-          <div><div class="eyebrow">DAILY MANAGEMENT / 03</div><h1>Attendance</h1><p>Record and monitor student attendance.</p></div>
-          <div class="date-display"><i data-lucide="calendar"></i><input type="date" id="attendanceDate"></div>
-        </div>
-        <div class="stats-grid compact-stats">
-          <article class="stat-card green"><div class="stat-top"><span>Present</span><i data-lucide="user-check"></i></div><div class="stat-number" id="todayPresent">0</div><div class="stat-foot">Students marked present</div></article>
-          <article class="stat-card orange"><div class="stat-top"><span>Absent</span><i data-lucide="user-x"></i></div><div class="stat-number" id="todayAbsent">0</div><div class="stat-foot">Students marked absent</div></article>
-          <article class="stat-card blue"><div class="stat-top"><span>Not Marked</span><i data-lucide="clock"></i></div><div class="stat-number" id="notMarked">0</div><div class="stat-foot">Awaiting attendance entry</div></article>
-          <article class="stat-card purple"><div class="stat-top"><span>Attendance Rate</span><i data-lucide="percent"></i></div><div class="stat-number"><span id="todayRate">0</span><small>%</small></div><div class="stat-foot">For selected date</div></article>
-        </div>
-        <article class="panel">
-          <div class="panel-heading"><div><h3>Daily Attendance Register</h3><p>Choose a status for each student and save attendance.</p></div><button class="primary-btn" id="saveAttendanceBtn"><i data-lucide="save"></i> Save Attendance</button></div>
-          <div class="table-wrap">
-            <table><thead><tr><th>STUDENT</th><th>REGISTRATION ID</th><th>COURSE</th><th>STATUS</th></tr></thead><tbody id="attendanceTable"></tbody></table>
-          </div>
-          <div class="empty-state" id="attendanceEmpty"><i data-lucide="calendar-x"></i><strong>No students registered</strong><span>Add students before marking attendance.</span></div>
-        </article>
-      </section>
-
-      <!-- MARKS -->
-      <section class="page" id="page-marks">
-        <div class="welcome-row"><div><div class="eyebrow">ACADEMIC PERFORMANCE / 04</div><h1>Marks & Results</h1><p>Maintain examination scores and academic performance.</p></div><button class="primary-btn" id="addMarksBtn"><i data-lucide="plus"></i> Update Marks</button></div>
-        <div class="stats-grid compact-stats">
-          <article class="stat-card purple"><div class="stat-top"><span>Average Score</span><i data-lucide="chart-line"></i></div><div class="stat-number" id="marksAverage">0</div><div class="stat-foot">Across recorded subjects</div></article>
-          <article class="stat-card green"><div class="stat-top"><span>Top Score</span><i data-lucide="trophy"></i></div><div class="stat-number" id="marksHighest">0</div><div class="stat-foot">Highest individual subject mark</div></article>
-          <article class="stat-card blue"><div class="stat-top"><span>Passed</span><i data-lucide="badge-check"></i></div><div class="stat-number" id="marksPassed">0</div><div class="stat-foot">Scores of 40 and above</div></article>
-          <article class="stat-card orange"><div class="stat-top"><span>Needs Improvement</span><i data-lucide="trending-down"></i></div><div class="stat-number" id="marksFailed">0</div><div class="stat-foot">Scores below 40</div></article>
-        </div>
-        <article class="panel">
-          <div class="panel-heading"><div><h3>Academic Results</h3><p>Student-wise examination performance</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>STUDENT</th><th>REGISTRATION ID</th><th>SUBJECT</th><th>MARKS</th><th>GRADE</th><th>RESULT</th><th>ACTIONS</th></tr></thead><tbody id="marksTable"></tbody></table></div>
-          <div class="empty-state" id="marksEmpty"><i data-lucide="clipboard-list"></i><strong>No marks recorded</strong><span>Use Update Marks to add examination results.</span></div>
-        </article>
-      </section>
-
-      <!-- FEES -->
-      <section class="page" id="page-fees">
-        <div class="welcome-row"><div><div class="eyebrow">FINANCIAL MANAGEMENT / 05</div><h1>Fee Management</h1><p>Monitor payments, balances and student fee status.</p></div><button class="primary-btn" id="recordPaymentBtn"><i data-lucide="plus"></i> Record Payment</button></div>
-        <div class="stats-grid compact-stats">
-          <article class="stat-card purple"><div class="stat-top"><span>Total Fees</span><i data-lucide="wallet"></i></div><div class="stat-number currency-number" id="totalFees">₹0</div><div class="stat-foot">Expected fee collection</div></article>
-          <article class="stat-card green"><div class="stat-top"><span>Collected</span><i data-lucide="badge-check"></i></div><div class="stat-number currency-number" id="collectedFees">₹0</div><div class="stat-foot">Payments received</div></article>
-          <article class="stat-card orange"><div class="stat-top"><span>Outstanding</span><i data-lucide="clock"></i></div><div class="stat-number currency-number" id="outstandingFees">₹0</div><div class="stat-foot">Pending payment balance</div></article>
-          <article class="stat-card blue"><div class="stat-top"><span>Fully Paid</span><i data-lucide="users"></i></div><div class="stat-number" id="fullyPaidCount">0</div><div class="stat-foot">Students with no balance</div></article>
-        </div>
-        <article class="panel">
-          <div class="panel-heading"><div><h3>Student Fee Register</h3><p>Payment information and outstanding balances</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>STUDENT</th><th>REGISTRATION ID</th><th>TOTAL FEES</th><th>PAID</th><th>BALANCE</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody id="feesTable"></tbody></table></div>
-          <div class="empty-state" id="feesEmpty"><i data-lucide="wallet"></i><strong>No fee records</strong><span>Register a student to manage fees.</span></div>
-        </article>
-      </section>
-
-      <!-- TIMETABLE -->
-      <section class="page" id="page-timetable">
-        <div class="welcome-row"><div><div class="eyebrow">ACADEMIC SCHEDULE / 06</div><h1>Class Timetable</h1><p>Organize weekly classes and academic sessions.</p></div><button class="primary-btn" id="addClassBtn"><i data-lucide="plus"></i> Add Class</button></div>
-        <div class="panel">
-          <div class="panel-heading"><div><h3>Weekly Schedule</h3><p>Your institution's class planner</p></div><span class="panel-tag">WEEKLY VIEW</span></div>
-          <div class="table-wrap"><table><thead><tr><th>DAY</th><th>TIME</th><th>SUBJECT</th><th>FACULTY</th><th>ROOM</th><th>ACTIONS</th></tr></thead><tbody id="timetableTable"></tbody></table></div>
-          <div class="empty-state" id="timetableEmpty"><i data-lucide="calendar-days"></i><strong>No classes scheduled</strong><span>Add your first class to build the timetable.</span></div>
-        </div>
-      </section>
-
-      <!-- ANNOUNCEMENTS -->
-      <section class="page" id="page-announcements">
-        <div class="welcome-row"><div><div class="eyebrow">CAMPUS COMMUNICATION / 07</div><h1>Announcements</h1><p>Publish notices and keep students informed.</p></div><button class="primary-btn" id="addAnnouncementBtn"><i data-lucide="plus"></i> New Announcement</button></div>
-        <div class="announcement-list" id="announcementList"></div>
-        <div class="empty-state panel" id="announcementsEmpty"><i data-lucide="megaphone"></i><strong>No announcements yet</strong><span>Create a notice for your student community.</span></div>
-      </section>
-      
-<!-- ACTIVITY HISTORY -->
-<section class="page" id="page-activity">
-  <div class="welcome-row">
-    <div>
-      <div class="eyebrow">WORKSPACE HISTORY / 08</div>
-      <h1>Activity History</h1>
-      <p>Track changes and recent management operations.</p>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="panel-heading">
-      <div>
-        <h3>Recent Activity</h3>
-        <p>Actions performed in StudyHub</p>
+    <section class="page" id="dashboard">
+      <h1 class="hero">Your records.<br><span>Organized.</span></h1>
+      <p class="sub">Add, find, remove and list students, all stored in a singly linked list.</p>
+      <div class="grid stats">
+        <div class="card stat" style="--c:#7c5cff"><div class="ico">🎓</div><small>Students</small><strong id="s1">0</strong><small>In the list</small></div>
+        <div class="card stat" style="--c:#3b82f6"><div class="ico">📊</div><small>Average marks</small><strong id="s2">0</strong><small>Out of 100</small></div>
+        <div class="card stat" style="--c:#22c07a"><div class="ico">🏆</div><small>Top score</small><strong id="s3">0</strong><small id="s3n">–</small></div>
+        <div class="card stat" style="--c:#e8793a"><div class="ico">🎯</div><small>Pass rate</small><strong id="s4">0%</strong><small>Marks 40 and above</small></div>
       </div>
-    </div>
-    <div id="activityContent"></div>
-  </div>
-</section>
+      <div class="grid two">
+        <div class="card"><h3>Recently added</h3><div id="recent"></div><button class="btn ghost" style="width:100%;margin-top:12px" onclick="go('records')">View all records</button></div>
+        <div class="card"><h3>Marks distribution</h3><div class="bars" id="bars"></div></div>
+      </div>
+    </section>
 
+    <section class="page" id="add">
+      <div class="card"><h3>Add a new student</h3>
+        <p class="panel-note">The new record is attached to the end of the list. Registration numbers must be unique.</p>
+        <form id="fAdd" novalidate>
+          <label>Registration number<input id="aReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
+          <label>Name<input id="aName" placeholder="Full name" autocomplete="off"></label>
+          <label>Marks (0 to 100)<input id="aMarks" type="number" min="0" max="100" step="0.5" placeholder="e.g. 86"></label>
+          <button class="btn" type="submit">Add student</button>
+        </form></div>
+    </section>
 
-      <!-- REPORTS -->
-      <section class="page" id="page-reports">
-        <div class="welcome-row"><div><div class="eyebrow">INSTITUTIONAL INSIGHTS / 08</div><h1>Reports & Analytics</h1><p>Review academic, attendance and fee summaries.</p></div><button class="secondary-btn" id="reportExportBtn"><i data-lucide="download"></i> Export Report</button></div>
-        <div class="stats-grid">
-          <article class="stat-card purple"><div class="stat-top"><span>Students</span><i data-lucide="users"></i></div><div class="stat-number" id="reportStudents">0</div><div class="stat-foot">Total registered</div></article>
-          <article class="stat-card blue"><div class="stat-top"><span>Attendance</span><i data-lucide="calendar-check"></i></div><div class="stat-number"><span id="reportAttendance">0</span><small>%</small></div><div class="stat-foot">Average attendance</div></article>
-          <article class="stat-card green"><div class="stat-top"><span>Academic Average</span><i data-lucide="graduation-cap"></i></div><div class="stat-number" id="reportMarks">0</div><div class="stat-foot">Average marks</div></article>
-          <article class="stat-card orange"><div class="stat-top"><span>Fee Collection</span><i data-lucide="wallet"></i></div><div class="stat-number" id="reportCollection">0%</div><div class="stat-foot">Percentage collected</div></article>
-        </div>
-        <div class="panel report-panel">
-          <div class="panel-heading"><div><h3>Student Summary</h3><p>Consolidated information for all students</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>STUDENT</th><th>REGISTRATION ID</th><th>ATTENDANCE</th><th>AVERAGE MARKS</th><th>FEE BALANCE</th><th>OVERALL STATUS</th></tr></thead><tbody id="reportTable"></tbody></table></div>
-        </div>
-      </section>
+    <section class="page" id="search">
+      <div class="card"><h3>Search by registration number</h3>
+        <p class="panel-note">The list is walked from the head, one node at a time, until a match is found.</p>
+        <form id="fSearch" novalidate>
+          <label>Registration number<input id="qReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
+          <button class="btn" type="submit">Search</button>
+        </form>
+        <div id="qOut"></div></div>
+    </section>
 
-      <!-- SETTINGS -->
-      <section class="page" id="page-settings">
-        <div class="welcome-row"><div><div class="eyebrow">PREFERENCES / 09</div><h1>Portal Settings</h1><p>Manage your workspace preferences and data.</p></div></div>
-        <div class="settings-grid">
-          <article class="panel settings-card">
-            <div class="settings-icon"><i data-lucide="building-2"></i></div>
-            <h3>Institution Details</h3><p>Customize your academic workspace identity.</p>
-            <label>Institution name</label><input id="institutionName" placeholder="Enter institution name">
-            <label>Academic year</label><input id="academicYear" placeholder="2026–2027">
-            <button class="primary-btn" id="saveSettingsBtn">Save Preferences</button>
-          </article>
-          <article class="panel settings-card">
-            <div class="settings-icon"><i data-lucide="database"></i></div>
-            <h3>Data Management</h3><p>Download a backup or restore the workspace to its initial state.</p>
-            <button class="secondary-btn full-btn" id="backupBtn"><i data-lucide="download"></i> Download Backup</button>
-            <button class="danger-btn full-btn" id="resetBtn"><i data-lucide="trash-2"></i> Reset All Portal Data</button>
-            <div class="setting-note">Resetting permanently clears records saved in this browser.</div>
-          </article>
-        </div>
-      </section>
+    <section class="page" id="delete">
+      <div class="card"><h3>Delete a student record</h3>
+        <p class="panel-note">The node is unlinked: the previous node now points to the next one.</p>
+        <form id="fDel" novalidate>
+          <label>Registration number<input id="dReg" placeholder="e.g. 21BCE1042" autocomplete="off"></label>
+          <button class="btn danger" type="submit">Delete record</button>
+        </form>
+        <div id="dOut"></div></div>
+    </section>
 
-    </div>
+    <section class="page" id="records">
+      <div class="card"><h3>All student records</h3>
+        <div class="chain" id="chain" aria-label="Linked list diagram"></div>
+        <div class="tw"><table><thead><tr><th>#</th><th>Reg. no.</th><th>Name</th><th>Marks</th><th>Result</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+        <div class="empty" id="none" hidden>The list is empty. Add a student to create the first node.</div></div>
+    </section>
+
+    <section class="page" id="source">
+      <div class="card"><h3>The same program in C</h3>
+        <p class="panel-note">This site mirrors this menu-driven program. Save it as <b>students.c</b> and compile with <b>gcc students.c -o students</b>.</p>
+<pre id="code"></pre></div>
+    </section>
+
+    <section class="page" id="exit">
+      <div class="card bye"><h1 class="hero">Session <span>closed.</span></h1>
+        <p class="sub">Your records are saved in this browser. Open the dashboard whenever you want to continue.</p>
+        <button class="btn" onclick="go('dashboard')">Back to dashboard</button></div>
+    </section>
   </main>
 </div>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal" id="modal">
-    <div class="modal-header"><div><span class="eyebrow" id="modalEyebrow">STUDENT MANAGEMENT</span><h2 id="modalTitle">Add Student</h2></div><button class="icon-btn" id="closeModal"><i data-lucide="x"></i></button></div>
-    <form id="modalForm"><div id="modalBody" class="modal-body"></div><div class="modal-footer"><button type="button" class="secondary-btn" id="cancelModal">Cancel</button><button type="submit" class="primary-btn" id="modalSubmit">Save Record</button></div></form>
-  </div>
-</div>
-
-<div class="toast-container" id="toastContainer"></div>
+<div id="toast" role="status"></div>
 
 <script src="app.js"></script>
-<script>if(window.lucide) lucide.createIcons();</script>
 </body>
 </html>
